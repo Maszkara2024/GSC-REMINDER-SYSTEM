@@ -1,0 +1,105 @@
+/* Minimal additional styles for the demo */
+/* Minimal additional styles for the demo */
+body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; font-size:15px; line-height:1.45; }
+
+#toastContainer > div { transition: opacity 0.4s ease; }
+
+/* Chat widget */
+#goldaWidget { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
+#goldaPanel { width: 320px; }
+#goldaMessages > div { margin-bottom: 8px; }
+#goldaMessages { background: #f8fafc }
+
+/* Color palette and component styles */
+:root{
+	--bg: #f8fafc;
+	--surface: #ffffff;
+	--muted: #6b7280;
+	--primary: #6366f1;
+	--primary-600: #4f46e5;
+	--accent: #06b6d4;
+	--danger: #dc2626;
+	--card-shadow: 0 6px 18px rgba(16,24,40,0.06);
+}
+
+body{ background: var(--bg); color: #0f172a; }
+
+/* Make main content slightly more readable */
+main, section { color: #0b1220; }
+
+header{ background: linear-gradient(90deg, rgba(99,102,241,0.06), rgba(6,182,212,0.02)); }
+header .font-semibold{ color: var(--primary); }
+
+/* Cards */
+.rounded-xl{ box-shadow: var(--card-shadow); background: var(--surface); }
+
+/* Assignment cards (primary student view) */
+#assignmentsList .p-3.border.rounded{ 
+	border-left: 4px solid rgba(99,102,241,0.12); 
+	padding-left: 14px; 
+	background: linear-gradient(180deg,#ffffff,#fcfdff);
+	transition: transform .12s ease, box-shadow .12s ease; 
+}
+#assignmentsList .p-3.border.rounded:hover{ transform: translateY(-3px); box-shadow: 0 14px 36px rgba(2,6,23,0.06); }
+#assignmentsList .font-medium{ color: var(--primary-600); font-size:1.05rem; }
+#assignmentsList .text-xs.text-slate-600{ color: var(--muted); }
+
+/* Empty state emphasis */
+#assignmentsList > .text-slate-600{ padding: 18px; border: 1px dashed rgba(15,23,42,0.04); border-radius: 10px; background: linear-gradient(180deg, rgba(99,102,241,0.02), transparent); }
+
+/* Limit assignments list height on larger screens */
+#assignmentsList{ max-height: 56vh; overflow:auto; padding-right:6px; }
+
+/* Primary buttons (tailwind classes also present) */
+.bg-indigo-600{ background-color: var(--primary) !important; box-shadow: 0 8px 20px rgba(99,102,241,0.12); transition: transform 0.12s ease, box-shadow 0.12s ease; }
+.bg-indigo-600:hover{ background-color: var(--primary-600) !important; transform: translateY(-2px); box-shadow: 0 12px 30px rgba(99,102,241,0.14); }
+.bg-indigo-600:active{ transform: translateY(0); }
+
+/* Secondary buttons */
+.bg-slate-100{ background: #f1f5f9; border: 1px solid rgba(15,23,42,0.04); }
+
+/* Inputs */
+input, textarea, select{ transition: box-shadow .12s ease, border-color .12s ease; }
+input:focus, textarea:focus, select:focus{ outline: none; box-shadow: 0 6px 18px rgba(99,102,241,0.08); border-color: var(--primary-600); }
+
+/* Teacher post panel visual */
+#teacherPanel{ border: 1px solid rgba(15,23,42,0.04); padding:12px; border-radius:10px; background: linear-gradient(180deg, #ffffff, #fbfdff); }
+
+/* Make labels and headings clearer */
+h2, h3, h4{ color: #0f172a; }
+
+/* Toast tweaks: cleaner card with shadow */
+#toastContainer > div{ border-left: 4px solid var(--primary); background: #ffffff; padding:10px 14px; border-radius:8px; box-shadow: 0 8px 22px rgba(2,6,23,0.06); }
+
+/* Links */
+a{ color: var(--primary); }
+
+/* Rooms list */
+#roomsList > div{ padding: 8px; border-radius: 8px; }
+#roomsList > div:hover{ background: rgba(99,102,241,0.04); }
+
+/* Chat area */
+#chatArea{ background: linear-gradient(180deg, #ffffff, #fbfdff); }
+#chatHeader{ font-weight:600; color: #0f172a; }
+#chatMessages{ padding: 12px; }
+#chatMessages .mb-2{ display:block; }
+#chatMessages .mb-2 .text-xs{ color: var(--muted); }
+#chatMessages .mb-2 .p-2{ background: #f8fafc; border-radius: 8px; }
+
+/* Assignments and list items */
+.p-3.border.rounded{ border-color: rgba(15,23,42,0.06); background: linear-gradient(180deg, #ffffff, #fbfdff); }
+
+/* Toast tweaks */
+#toastContainer > div{ border-left: 4px solid var(--primary); }
+
+/* Golda widget */
+#goldaPanel{ border-radius: 12px; box-shadow: 0 12px 30px rgba(2,6,23,0.08); }
+#goldaMessages .inline-block{ border-radius: 8px; }
+
+/* Login hero background (place your image at assets/banner.jpg) */
+.login-hero{ position: relative; overflow: hidden; background-size: cover; background-position: center center; }
+.login-hero .hero-overlay{ position: absolute; inset: 0; background: rgba(0,0,0,0.45); }
+.login-hero .hero-content{ position: relative; z-index: 2; color: #fff; }
+.login-hero .hero-content a{ color: #fff; }
+.login-hero .hero-muted{ color: rgba(255,255,255,0.85); }
+
