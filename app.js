@@ -1,10 +1,39 @@
+const HUGGINGFACE_API_KEY = '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';
+async function queryAI(prompt) {
+  try {
+    const res = await fetch('https://api-inference.huggingface.co/models/gpt2', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${HUGGINGFACE_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ inputs: prompt, options: { wait_for_model: true } })
+    });
+    const data = await res.json();
+    if(data.error) return "AI is busy or something went wrong.";
+    return Array.isArray(data) && data[0]?.generated_text ? data[0].generated_text : JSON.stringify(data);
+  } catch(e) {
+    console.error(e);
+    return "Error connecting to AI";
+  }
+}
+
 // Clean assignments + Golda chat implementation
 // Tracks per-student submission status
 
+
+
 const LS_KEY = 'assignments::demo';
-const LS_EVENTS_KEY = 'schoolevents::demo';
+const LS_EVENTS_KEY = 'classroomEvents::demo';
+const LS_ACTIVITIES_KEY = 'classroomActivities::demo';
+const LS_PERFORMANCE_KEY = 'classroomPerformance::demo';
+const LS_STUDENTS_PERF_KEY = 'studentsPerformance::demo';
+const LS_REMINDER_KEY = 'teacherReminder::demo';
 let assignments = [];
-let schoolEvents = [];
+let classroomEvents = [];
+let classroomActivities = [];
+let performanceTasks = [];
+let studentPerformances = [];
 let currentUser = JSON.parse(localStorage.getItem('currentUser::demo') || 'null');
 
 function showToast(msg){
@@ -25,43 +54,62 @@ function loadAssignments(){
   try{ assignments = JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }catch(e){ assignments = []; }
 }
 
-function saveSchoolEvents(){
-  try{ localStorage.setItem(LS_EVENTS_KEY, JSON.stringify(schoolEvents)); }catch(e){ console.error(e); }
+function saveEvents(){
+  try{ localStorage.setItem(LS_EVENTS_KEY, JSON.stringify(classroomEvents)); }catch(e){ console.error(e); }
 }
 
-function loadSchoolEvents(){
-  try{ schoolEvents = JSON.parse(localStorage.getItem(LS_EVENTS_KEY) || '[]'); }catch(e){ schoolEvents = []; }
+function loadEvents(){
+  try{ classroomEvents = JSON.parse(localStorage.getItem(LS_EVENTS_KEY) || '[]'); }catch(e){ classroomEvents = []; }
 }
 
-function formatEventDate(dateStr){ 
+function saveActivities(){
+  try{ localStorage.setItem(LS_ACTIVITIES_KEY, JSON.stringify(classroomActivities)); }catch(e){ console.error(e); }
+}
+
+function loadActivities(){
+  try{ classroomActivities = JSON.parse(localStorage.getItem(LS_ACTIVITIES_KEY) || '[]'); }catch(e){ classroomActivities = []; }
+}
+
+function savePerformance(){
+  try{ localStorage.setItem(LS_PERFORMANCE_KEY, JSON.stringify(performanceTasks)); }catch(e){ console.error(e); }
+}
+
+function loadPerformance(){
+  try{ performanceTasks = JSON.parse(localStorage.getItem(LS_PERFORMANCE_KEY) || '[]'); }catch(e){ performanceTasks = []; }
+}
+
+function loadStudentPerformances(){
+  try{ studentPerformances = JSON.parse(localStorage.getItem(LS_STUDENTS_PERF_KEY) || '[]'); }catch(e){ studentPerformances = []; }
+}
+
+function formatEventDate(dateStr){
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function renderSchoolEvents(){
+function renderEvents(){
   const list = document.getElementById('eventsList');
   const teacherPanel = document.getElementById('teacherEventPanel');
   const eventTeacherOnly = document.getElementById('eventTeacherOnly');
-  const role = currentUser ? currentUser.role : 'student';
-  
   if(!list) return;
-  
-  // Show teacher controls only for teachers
+  const roleSelect = document.getElementById('roleSelect');
+  const role = currentUser ? currentUser.role : (roleSelect ? roleSelect.value : 'student');
+
   if(teacherPanel) teacherPanel.classList.toggle('hidden', role !== 'teacher');
   if(eventTeacherOnly) eventTeacherOnly.classList.toggle('hidden', role !== 'teacher');
-  
+
   list.innerHTML = '';
-  if(schoolEvents.length === 0){
+  if(classroomEvents.length === 0){
     const empty = document.createElement('div');
     empty.className = 'text-slate-600 text-sm';
     empty.textContent = 'No events scheduled.';
     list.appendChild(empty);
     return;
   }
-  
-  schoolEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
-  schoolEvents.forEach((evt, idx) => {
+
+  classroomEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
+  classroomEvents.forEach((evt, idx) => {
     const card = document.createElement('div');
-    card.className = 'p-3 border rounded bg-blue-50 text-sm';
+    card.className = 'p-3 border rounded bg-amber-50 border-amber-200 text-sm';
     const title = document.createElement('div');
     title.className = 'font-medium text-slate-900';
     title.textContent = evt.title;
@@ -70,18 +118,316 @@ function renderSchoolEvents(){
     date.textContent = '📅 ' + formatEventDate(evt.date);
     card.appendChild(title);
     card.appendChild(date);
-    
+
     if(role === 'teacher'){
       const actions = document.createElement('div');
       actions.className = 'mt-2 flex justify-end gap-2';
       const del = document.createElement('button');
       del.className = 'px-2 py-0.5 bg-red-600 text-white rounded text-xs';
       del.textContent = '✕';
-      del.onclick = () => { schoolEvents.splice(idx, 1); saveSchoolEvents(); renderSchoolEvents(); showToast('Event deleted'); };
+      del.onclick = () => { classroomEvents.splice(idx, 1); saveEvents(); renderEvents(); showToast('Event deleted'); };
       actions.appendChild(del);
       card.appendChild(actions);
     }
-    
+
+    list.appendChild(card);
+  });
+}
+
+function renderActivities(){
+  const list = document.getElementById('activityList');
+  const teacherPanel = document.getElementById('activityTeacherPanel');
+  const teacherBadge = document.getElementById('activityTeacherOnly');
+  const remindWrap = document.getElementById('activityRemindWrap');
+  if(!list) return;
+  const roleSelect = document.getElementById('roleSelect');
+  const role = currentUser ? currentUser.role : (roleSelect ? roleSelect.value : 'student');
+  if(teacherPanel) teacherPanel.classList.toggle('hidden', role !== 'teacher');
+  if(teacherBadge) teacherBadge.classList.toggle('hidden', role !== 'teacher');
+  if(remindWrap) remindWrap.classList.toggle('hidden', role !== 'teacher');
+
+  list.innerHTML = '';
+  if(classroomActivities.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'text-slate-600 text-sm';
+    empty.textContent = 'No activities yet.';
+    list.appendChild(empty);
+    return;
+  }
+
+  classroomActivities.sort((a, b) => new Date(a.date) - new Date(b.date));
+  classroomActivities.forEach((act, idx) => {
+    const card = document.createElement('div');
+    card.className = 'p-3 border rounded bg-white text-sm';
+    const title = document.createElement('div');
+    title.className = 'font-medium text-slate-900';
+    title.textContent = act.title;
+    const date = document.createElement('div');
+    date.className = 'text-xs text-slate-600 mt-1';
+    date.textContent = '📅 ' + formatEventDate(act.date);
+    card.appendChild(title);
+    card.appendChild(date);
+
+    if(role === 'student'){
+      const studentId = currentUser ? currentUser.id : 'guest';
+      if(!act.submissions) act.submissions = [];
+      const submission = act.submissions.find(s => s.studentId === studentId);
+      const actions = document.createElement('div');
+      actions.className = 'mt-3 flex items-center gap-2';
+      if(submission && submission.completed){
+        const status = document.createElement('span');
+        status.className = 'text-xs text-green-700 bg-green-100 px-2 py-1 rounded';
+        status.textContent = 'Passed ✅ (approved)';
+        actions.appendChild(status);
+      } else if(submission && submission.submitted){
+        const status = document.createElement('span');
+        status.className = 'text-xs text-slate-600';
+        status.textContent = '⏳ Awaiting teacher approval';
+        actions.appendChild(status);
+      } else {
+        const passBtn = document.createElement('button');
+        passBtn.className = 'px-3 py-1 bg-blue-600 text-white rounded text-xs';
+        passBtn.textContent = 'DONE';
+        passBtn.onclick = () => {
+          if(!act.submissions) act.submissions = [];
+          let sub = act.submissions.find(s => s.studentId === studentId);
+          if(!sub){
+            sub = { studentId, studentName: currentUser ? currentUser.name : 'Student', submitted: false, completed: false };
+            act.submissions.push(sub);
+          }
+          sub.submitted = true;
+          sub.completed = false;
+          saveActivities();
+          renderActivities();
+          showToast('Submitted for approval');
+        };
+        actions.appendChild(passBtn);
+      }
+      card.appendChild(actions);
+    }
+
+    if(role === 'teacher'){
+      const actions = document.createElement('div');
+      actions.className = 'mt-3 flex justify-between items-center gap-2';
+
+      const submissions = act.submissions || [];
+      if(submissions.length === 0){
+        const empty = document.createElement('span');
+        empty.className = 'text-xs text-slate-500';
+        empty.textContent = 'No submissions yet.';
+        actions.appendChild(empty);
+      } else {
+        const listWrap = document.createElement('div');
+        listWrap.className = 'mt-2 space-y-2 w-full';
+        submissions.forEach((sub) => {
+          const row = document.createElement('div');
+          row.className = 'flex items-center justify-between text-xs bg-slate-50 border rounded px-2 py-1';
+          const name = document.createElement('span');
+          name.textContent = sub.studentName || 'Student';
+          row.appendChild(name);
+          const rowActions = document.createElement('div');
+          rowActions.className = 'flex items-center gap-2';
+          if(sub.completed){
+            const status = document.createElement('span');
+            status.className = 'text-green-700';
+            status.textContent = 'Passed';
+            rowActions.appendChild(status);
+            const remove = document.createElement('button');
+            remove.className = 'px-2 py-0.5 bg-gray-600 text-white rounded';
+            remove.textContent = 'Remove';
+            remove.onclick = () => {
+              act.submissions = act.submissions.filter(s => s.studentId !== sub.studentId);
+              saveActivities();
+              renderActivities();
+              showToast('Removed');
+            };
+            rowActions.appendChild(remove);
+          } else if(sub.submitted){
+            const approve = document.createElement('button');
+            approve.className = 'px-2 py-0.5 bg-green-600 text-white rounded';
+            approve.textContent = 'Approve';
+            approve.onclick = () => {
+              sub.submitted = false;
+              sub.completed = true;
+              saveActivities();
+              renderActivities();
+              showToast('Approved');
+            };
+            const reject = document.createElement('button');
+            reject.className = 'px-2 py-0.5 bg-red-600 text-white rounded';
+            reject.textContent = 'Reject';
+            reject.onclick = () => {
+              sub.submitted = false;
+              saveActivities();
+              renderActivities();
+              showToast('Rejected');
+            };
+            rowActions.appendChild(approve);
+            rowActions.appendChild(reject);
+          }
+          row.appendChild(rowActions);
+          listWrap.appendChild(row);
+        });
+        card.appendChild(listWrap);
+      }
+
+      const del = document.createElement('button');
+      del.className = 'px-2 py-0.5 bg-red-600 text-white rounded text-xs';
+      del.textContent = '✕';
+      del.onclick = () => { classroomActivities.splice(idx, 1); saveActivities(); renderActivities(); showToast('Activity deleted'); };
+      actions.appendChild(del);
+      card.appendChild(actions);
+    }
+
+    list.appendChild(card);
+  });
+}
+
+function renderPerformance(){
+  const list = document.getElementById('performanceList');
+  const teacherPanel = document.getElementById('performanceTeacherPanel');
+  const teacherBadge = document.getElementById('performanceTeacherOnly');
+  const remindWrap = document.getElementById('performanceRemindWrap');
+  if(!list) return;
+  const roleSelect = document.getElementById('roleSelect');
+  const role = currentUser ? currentUser.role : (roleSelect ? roleSelect.value : 'student');
+  if(teacherPanel) teacherPanel.classList.toggle('hidden', role !== 'teacher');
+  if(teacherBadge) teacherBadge.classList.toggle('hidden', role !== 'teacher');
+  if(remindWrap) remindWrap.classList.toggle('hidden', role !== 'teacher');
+
+  list.innerHTML = '';
+  if(performanceTasks.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'text-slate-600 text-sm';
+    empty.textContent = 'No performance tasks yet.';
+    list.appendChild(empty);
+    return;
+  }
+
+  performanceTasks.sort((a, b) => new Date(a.date) - new Date(b.date));
+  performanceTasks.forEach((task, idx) => {
+    const card = document.createElement('div');
+    card.className = 'p-3 border rounded bg-white text-sm';
+    const title = document.createElement('div');
+    title.className = 'font-medium text-slate-900';
+    title.textContent = task.title;
+    const date = document.createElement('div');
+    date.className = 'text-xs text-slate-600 mt-1';
+    date.textContent = '📅 ' + formatEventDate(task.date);
+    card.appendChild(title);
+    card.appendChild(date);
+
+    if(role === 'student'){
+      const studentId = currentUser ? currentUser.id : 'guest';
+      if(!task.submissions) task.submissions = [];
+      const submission = task.submissions.find(s => s.studentId === studentId);
+      const actions = document.createElement('div');
+      actions.className = 'mt-3 flex items-center gap-2';
+      if(submission && submission.completed){
+        const status = document.createElement('span');
+        status.className = 'text-xs text-green-700 bg-green-100 px-2 py-1 rounded';
+        status.textContent = 'Passed ✅ (approved)';
+        actions.appendChild(status);
+      } else if(submission && submission.submitted){
+        const status = document.createElement('span');
+        status.className = 'text-xs text-slate-600';
+        status.textContent = '⏳ Awaiting teacher approval';
+        actions.appendChild(status);
+      } else {
+        const passBtn = document.createElement('button');
+        passBtn.className = 'px-3 py-1 bg-purple-600 text-white rounded text-xs';
+        passBtn.textContent = 'DONE';
+        passBtn.onclick = () => {
+          if(!task.submissions) task.submissions = [];
+          let sub = task.submissions.find(s => s.studentId === studentId);
+          if(!sub){
+            sub = { studentId, studentName: currentUser ? currentUser.name : 'Student', submitted: false, completed: false };
+            task.submissions.push(sub);
+          }
+          sub.submitted = true;
+          sub.completed = false;
+          savePerformance();
+          renderPerformance();
+          showToast('Submitted for approval');
+        };
+        actions.appendChild(passBtn);
+      }
+      card.appendChild(actions);
+    }
+
+    if(role === 'teacher'){
+      const actions = document.createElement('div');
+      actions.className = 'mt-3 flex justify-between items-center gap-2';
+
+      const submissions = task.submissions || [];
+      if(submissions.length === 0){
+        const empty = document.createElement('span');
+        empty.className = 'text-xs text-slate-500';
+        empty.textContent = 'No submissions yet.';
+        actions.appendChild(empty);
+      } else {
+        const listWrap = document.createElement('div');
+        listWrap.className = 'mt-2 space-y-2 w-full';
+        submissions.forEach((sub) => {
+          const row = document.createElement('div');
+          row.className = 'flex items-center justify-between text-xs bg-slate-50 border rounded px-2 py-1';
+          const name = document.createElement('span');
+          name.textContent = sub.studentName || 'Student';
+          row.appendChild(name);
+          const rowActions = document.createElement('div');
+          rowActions.className = 'flex items-center gap-2';
+          if(sub.completed){
+            const status = document.createElement('span');
+            status.className = 'text-green-700';
+            status.textContent = 'Passed';
+            rowActions.appendChild(status);
+            const remove = document.createElement('button');
+            remove.className = 'px-2 py-0.5 bg-gray-600 text-white rounded';
+            remove.textContent = 'Remove';
+            remove.onclick = () => {
+              task.submissions = task.submissions.filter(s => s.studentId !== sub.studentId);
+              savePerformance();
+              renderPerformance();
+              showToast('Removed');
+            };
+            rowActions.appendChild(remove);
+          } else if(sub.submitted){
+            const approve = document.createElement('button');
+            approve.className = 'px-2 py-0.5 bg-green-600 text-white rounded';
+            approve.textContent = 'Approve';
+            approve.onclick = () => {
+              sub.submitted = false;
+              sub.completed = true;
+              savePerformance();
+              renderPerformance();
+              showToast('Approved');
+            };
+            const reject = document.createElement('button');
+            reject.className = 'px-2 py-0.5 bg-red-600 text-white rounded';
+            reject.textContent = 'Reject';
+            reject.onclick = () => {
+              sub.submitted = false;
+              savePerformance();
+              renderPerformance();
+              showToast('Rejected');
+            };
+            rowActions.appendChild(approve);
+            rowActions.appendChild(reject);
+          }
+          row.appendChild(rowActions);
+          listWrap.appendChild(row);
+        });
+        card.appendChild(listWrap);
+      }
+
+      const del = document.createElement('button');
+      del.className = 'px-2 py-0.5 bg-red-600 text-white rounded text-xs';
+      del.textContent = '✕';
+      del.onclick = () => { performanceTasks.splice(idx, 1); savePerformance(); renderPerformance(); showToast('Task deleted'); };
+      actions.appendChild(del);
+      card.appendChild(actions);
+    }
+
     list.appendChild(card);
   });
 }
@@ -103,6 +449,73 @@ function getDueDateHighlight(ts){
 function getStudentSubmission(a, studentId){
   if(!a.submissions) a.submissions = [];
   return a.submissions.find(s => s.studentId === studentId);
+}
+
+function getAllStudentNames(){
+  const names = [];
+
+  // From registered users
+  try{
+    const users = JSON.parse(localStorage.getItem('users::demo') || '[]');
+    users.filter(u => u.role === 'student').forEach(u => { if(u.name) names.push(u.name); });
+  }catch(e){}
+
+  // From student performance records
+  loadStudentPerformances();
+  studentPerformances.forEach(s => { if(s.name) names.push(s.name); });
+
+  // From activity submissions
+  classroomActivities.forEach(item => {
+    (item.submissions || []).forEach(sub => { if(sub.studentName) names.push(sub.studentName); });
+  });
+
+  // From performance submissions
+  performanceTasks.forEach(item => {
+    (item.submissions || []).forEach(sub => { if(sub.studentName) names.push(sub.studentName); });
+  });
+
+  return [...new Set(names)];
+}
+
+function saveReminder(message){
+  try{
+    const existing = JSON.parse(localStorage.getItem(LS_REMINDER_KEY) || '[]');
+    const list = Array.isArray(existing) ? existing : [];
+    list.unshift({ message, at: Date.now() });
+    localStorage.setItem(LS_REMINDER_KEY, JSON.stringify(list));
+  }catch(e){ console.error(e); }
+}
+
+function loadReminder(){
+  try{ return JSON.parse(localStorage.getItem(LS_REMINDER_KEY) || '[]'); }catch(e){ return []; }
+}
+
+function renderStudentReminder(){
+  const wrap = document.getElementById('studentReminder');
+  const text = document.getElementById('studentReminderText');
+  const time = document.getElementById('studentReminderTime');
+  if(!wrap || !text || !time) return;
+  const roleSelect = document.getElementById('roleSelect');
+  const role = currentUser ? currentUser.role : (roleSelect ? roleSelect.value : 'student');
+  if(role !== 'student'){ wrap.classList.add('hidden'); return; }
+  const reminders = loadReminder();
+  if(!Array.isArray(reminders) || reminders.length === 0){ wrap.classList.add('hidden'); return; }
+  const lines = reminders.map(r => r.message).filter(Boolean);
+  text.innerHTML = lines.map(l => `• ${l}`).join('<br>');
+  const latest = reminders[0];
+  const ts = latest && latest.at ? new Date(latest.at) : new Date();
+  time.textContent = `Last sent: ${ts.toLocaleString()}`;
+  wrap.classList.remove('hidden');
+}
+
+function getLatestTitle(items, fallback){
+  if(!items || items.length === 0) return fallback;
+  let latest = items[0];
+  items.forEach(item => {
+    if(!item.date) return;
+    if(!latest.date || new Date(item.date) > new Date(latest.date)) latest = item;
+  });
+  return latest.title || fallback;
 }
 
 function renderAssignments(){
@@ -241,21 +654,6 @@ function renderAssignments(){
         
         const card = document.createElement('div');
         card.className = 'p-3 border rounded bg-white mt-2';
-        
-        // Get list of students who haven't completed
-        const incompleteStudents = a.submissions.filter(s => !s.completed).map(s => s.studentName);
-        const remindBtn = document.createElement('button');
-        remindBtn.className = 'px-3 py-1 bg-yellow-600 text-white rounded text-sm mr-2';
-        remindBtn.textContent = `Auto Remind (${incompleteStudents.length})`;
-        remindBtn.onclick = () => {
-          if(incompleteStudents.length === 0){
-            showToast('All students have completed this assignment!');
-          } else {
-            showToast(`Reminder sent to: ${incompleteStudents.join(', ')}`);
-          }
-        };
-        card.appendChild(remindBtn);
-        
         const del = document.createElement('button');
         del.className = 'px-3 py-1 bg-gray-600 text-white rounded text-sm';
         del.textContent = 'Delete Assignment';
@@ -293,23 +691,42 @@ function handlePostNow(){
 }
 
 function init(){
+  // Seed demo accounts if missing
+  try{
+    const users = JSON.parse(localStorage.getItem('users::demo') || '[]');
+    const ensureUser = (name, role, email) => {
+      if(!users.find(u => u.email === email)){
+        users.push({ id: `${role}-${name}`, name, email, password: '123', role });
+      }
+    };
+    ['student1','student2','student3','student4','student5'].forEach(n => ensureUser(n, 'student', `${n}@gmail.com`));
+    ['teacher1','teacher2','teacher3','teacher4','teacher5'].forEach(n => ensureUser(n, 'teacher', `${n}@gmail.com`));
+    localStorage.setItem('users::demo', JSON.stringify(users));
+  }catch(e){}
+
   loadAssignments();
-  loadSchoolEvents();
+  loadEvents();
+  loadActivities();
+  loadPerformance();
+  loadStudentPerformances();
   const roleSelect = document.getElementById('roleSelect');
   const teacherPanel = document.getElementById('teacherPanel');
   const postBtn = document.getElementById('postBtn');
+  const studentsLink = document.getElementById('studentsLink');
+  const studentProfileLink = document.getElementById('studentProfileLink');
 
   if(roleSelect){
     if(currentUser){ try{ roleSelect.value = currentUser.role; roleSelect.disabled = !!currentUser.role; }catch(e){} }
-    roleSelect.addEventListener('change', ()=>{ if(teacherPanel) teacherPanel.classList.toggle('hidden', roleSelect.value !== 'teacher'); renderAssignments(); renderSchoolEvents(); });
+    roleSelect.addEventListener('change', ()=>{ if(teacherPanel) teacherPanel.classList.toggle('hidden', roleSelect.value !== 'teacher'); if(studentsLink) studentsLink.classList.toggle('hidden', roleSelect.value !== 'teacher'); if(studentProfileLink) studentProfileLink.classList.toggle('hidden', roleSelect.value !== 'student'); renderAssignments(); renderEvents(); renderActivities(); renderPerformance(); });
     const initRole = currentUser ? currentUser.role : roleSelect.value;
     if(teacherPanel) teacherPanel.classList.toggle('hidden', initRole !== 'teacher');
+    if(studentsLink) studentsLink.classList.toggle('hidden', initRole !== 'teacher');
+    if(studentProfileLink) studentProfileLink.classList.toggle('hidden', initRole !== 'student');
   }
 
   if(postBtn) postBtn.addEventListener('click', handlePostNow);
   const postDueDone = document.getElementById('postDueDone'); if(postDueDone) postDueDone.addEventListener('click', handlePostNow);
 
-  // School Events
   const eventAddBtn = document.getElementById('eventAddBtn');
   const eventTitle = document.getElementById('eventTitle');
   const eventDate = document.getElementById('eventDate');
@@ -318,12 +735,74 @@ function init(){
       const title = (eventTitle.value || '').trim();
       const date = eventDate.value;
       if(!title || !date){ showToast('Please fill in event name and date'); return; }
-      schoolEvents.push({ id: Date.now().toString(), title, date });
-      saveSchoolEvents();
+      classroomEvents.push({ id: Date.now().toString(), title, date });
+      saveEvents();
       eventTitle.value = '';
       eventDate.value = '';
-      renderSchoolEvents();
+      renderEvents();
       showToast('Event added');
+    });
+  }
+
+  const activityAddBtn = document.getElementById('activityAddBtn');
+  const activityTitle = document.getElementById('activityTitle');
+  const activityDate = document.getElementById('activityDate');
+  if(activityAddBtn){
+    activityAddBtn.addEventListener('click', ()=>{
+      const title = (activityTitle.value || '').trim();
+      const date = activityDate.value;
+      if(!title || !date){ showToast('Please fill in activity name and date'); return; }
+      classroomActivities.push({ id: Date.now().toString(), title, date });
+      saveActivities();
+      activityTitle.value = '';
+      activityDate.value = '';
+      renderActivities();
+      showToast('Activity added');
+    });
+  }
+
+  const performanceAddBtn = document.getElementById('performanceAddBtn');
+  const performanceTitle = document.getElementById('performanceTitle');
+  const performanceDate = document.getElementById('performanceDate');
+  if(performanceAddBtn){
+    performanceAddBtn.addEventListener('click', ()=>{
+      const title = (performanceTitle.value || '').trim();
+      const date = performanceDate.value;
+      if(!title || !date){ showToast('Please fill in task name and date'); return; }
+      performanceTasks.push({ id: Date.now().toString(), title, date });
+      savePerformance();
+      performanceTitle.value = '';
+      performanceDate.value = '';
+      renderPerformance();
+      showToast('Performance task added');
+    });
+  }
+
+  const activityRemindBtn = document.getElementById('activityRemindBtn');
+  if(activityRemindBtn){
+    activityRemindBtn.addEventListener('click', ()=>{
+      const role = currentUser ? currentUser.role : (roleSelect ? roleSelect.value : 'student');
+      if(role !== 'teacher'){ showToast('Teacher access only'); return; }
+      const names = getAllStudentNames();
+      if(names.length === 0){ showToast('No students to remind'); return; }
+      const latestActivity = getLatestTitle(classroomActivities, 'your activity');
+      saveReminder(`Please complete and submit: ${latestActivity}.`);
+      renderStudentReminder();
+      showToast(`Remind: ${names.join(', ')}`);
+    });
+  }
+
+  const performanceRemindBtn = document.getElementById('performanceRemindBtn');
+  if(performanceRemindBtn){
+    performanceRemindBtn.addEventListener('click', ()=>{
+      const role = currentUser ? currentUser.role : (roleSelect ? roleSelect.value : 'student');
+      if(role !== 'teacher'){ showToast('Teacher access only'); return; }
+      const names = getAllStudentNames();
+      if(names.length === 0){ showToast('No students to remind'); return; }
+      const latestPerformance = getLatestTitle(performanceTasks, 'your performance task');
+      saveReminder(`Please complete and submit: ${latestPerformance}.`);
+      renderStudentReminder();
+      showToast(`Remind: ${names.join(', ')}`);
     });
   }
 
@@ -334,16 +813,81 @@ function init(){
   const input = document.getElementById('goldaInput');
   const send = document.getElementById('goldaSend');
   function escapeHtml(s){ return String(s||'').replace(/[&"'<>]/g, c=> ({'&':'&amp;','"':'&quot;','\'':'&#39;','<':'&lt;','>':'&gt;'}[c])); }
+  const HUGGINGFACE_API_KEY = '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';
   if(chatToggle && chatPanel && messages){
     chatToggle.addEventListener('click', ()=> chatPanel.classList.toggle('hidden'));
-    function append(who, text){ const m = document.createElement('div'); m.className = who === 'user' ? 'text-right text-sm' : 'text-left text-sm'; m.innerHTML = `<div class="inline-block p-2 rounded ${who==='user' ? 'bg-green-600 text-white' : 'bg-white border'}">${escapeHtml(text)}</div>`; messages.appendChild(m); messages.scrollTop = messages.scrollHeight; }
-    function respondTo(msg){ const lower = msg.toLowerCase(); if(/\bhello|hi|hey\b/.test(lower)) return 'Hello — I\'m Golda. I can list assignments or help with posting.'; if(/list assignments|show assignments/.test(lower)) return assignments.length ? assignments.map(a=> `• ${a.title}${a.due ? ' (due ' + new Date(a.due).toLocaleString() + ')' : ''}${a.submissions && a.submissions.length ? ' (' + a.submissions.length + ' submission' + (a.submissions.length > 1 ? 's' : '') + ')' : ''}`).join('\n') : 'No assignments posted yet.'; return "Golda can't do that here."; }
-    if(send){ send.addEventListener('click', ()=>{ const txt = (input.value||'').trim(); if(!txt) return; input.value=''; append('user', txt); setTimeout(()=> append('golda', respondTo(txt)), 300); }); }
-    if(input) input.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') { e.preventDefault(); if(send) send.click(); } });
+    function append(who, text){
+      const m = document.createElement('div');
+      m.className = who === 'user' ? 'text-right text-sm' : 'text-left text-sm';
+      m.innerHTML = `<div class="inline-block p-2 rounded ${who==='user' ? 'bg-green-600 text-white' : 'bg-white border'}">${escapeHtml(text)}</div>`;
+      messages.appendChild(m);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    async function queryAI(prompt){
+      if(!HUGGINGFACE_API_KEY){
+        return 'AI key missing. Add your Hugging Face key to enable chat.';
+      }
+      try {
+        const res = await fetch('https://api-inference.huggingface.co/models/gpt2', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${HUGGINGFACE_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ inputs: prompt, options: { wait_for_model: true } })
+        });
+        const data = await res.json();
+        if(data.error) return 'AI is busy or something went wrong.';
+        return Array.isArray(data) && data[0]?.generated_text ? data[0].generated_text : JSON.stringify(data);
+      } catch(e) {
+        console.error(e);
+        return 'Error connecting to AI';
+      }
+    }
+
+    async function respondToAI(msg){
+      const role = currentUser ? currentUser.role : 'student';
+      let context = 'You are an assistant for a classroom website.\n';
+      context += `Role: ${role}\n`;
+      context += 'Remind and guide the user about assignments, activities, and performance tasks.\n';
+      context += 'Here are the current items:\n';
+
+      assignments.forEach(a => {
+        context += `Assignment: ${a.title}, Due: ${a.due ? new Date(a.due).toLocaleDateString() : '—'}\n`;
+      });
+      classroomActivities.forEach(a => {
+        context += `Activity: ${a.title}, Date: ${a.date}\n`;
+      });
+      performanceTasks.forEach(a => {
+        context += `Performance: ${a.title}, Date: ${a.date}\n`;
+      });
+
+      context += `User asked: "${msg}"\nProvide a concise, helpful response.`;
+      return await queryAI(context);
+    }
+
+    if(send){
+      send.addEventListener('click', async ()=>{
+        const txt = (input.value||'').trim();
+        if(!txt) return;
+        input.value='';
+        append('user', txt);
+        append('golda', '⏳ Thinking...');
+        const aiReply = await respondToAI(txt);
+        const last = messages.lastChild;
+        if(last && last.textContent.includes('⏳ Thinking')) last.remove();
+        append('golda', aiReply);
+      });
+    }
+
   }
 
   renderAssignments();
-  renderSchoolEvents();
+  renderEvents();
+  renderActivities();
+  renderPerformance();
+  renderStudentReminder();
 }
 
 if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

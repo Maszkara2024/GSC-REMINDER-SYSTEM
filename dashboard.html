@@ -16,11 +16,13 @@
     <!-- Optional: provide a `FIREBASE_CONFIG` object in a firebase-config.js file to enable cloud persistence -->
     <script src="firebase-config.js" defer></script>
   </head>
-  <body class="bg-slate-50 text-slate-800 font-sans">
-    <header class="bg-white shadow-sm">
+<body class="text-slate-800 font-sans">
+     <header class="bg-white shadow-sm">
       <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
         <div class="font-semibold text-indigo-600">Research Project</div>
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-3">
+          <a id="studentsLink" href="students.html" class="hidden px-3 py-1 bg-amber-400 text-white rounded text-sm">Students</a>
+          <a id="studentProfileLink" href="student-profile.html" class="hidden px-3 py-1 bg-indigo-600 text-white rounded text-sm">Profile</a>
           <div id="currentUserDisplay" class="text-sm text-slate-700"></div>
           <button id="logoutBtn" class="px-3 py-1 bg-slate-100 rounded">Logout</button>
         </div>
@@ -29,69 +31,96 @@
 
     <main class="max-w-5xl mx-auto px-6 py-8">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- Left: Assignments (primary for students) -->
-        <section class="md:col-span-2 bg-white rounded-xl p-6 shadow-md">
+        <!-- Main: Events only -->
+        <section class="md:col-span-2 bg-white rounded-xl p-6 shadow-md border border-amber-100">
           <div class="flex items-center justify-between">
-            <h2 class="text-2xl font-semibold text-slate-900">Classroom — Assignments & Activities</h2>
+            <h2 class="text-2xl font-semibold text-slate-900">School Events</h2>
             <div class="flex items-center gap-3">
               <label class="text-sm text-slate-600">Role</label>
               <select id="roleSelect" class="rounded border-gray-200 text-sm">
                 <option value="student">Student</option>
                 <option value="teacher">Teacher</option>
               </select>
+              <span id="eventTeacherOnly" class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded hidden">Teacher</span>
             </div>
           </div>
 
-          <div id="teacherPanel" class="mt-6 hidden">
-            <h3 class="font-semibold text-slate-800">Post an assignment / activity</h3>
-            <div class="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
-              <input id="postTitle" placeholder="Title" class="col-span-2 rounded border-gray-200 p-2" />
-              <textarea id="postDesc" placeholder="Description (optional)" class="col-span-2 rounded border-gray-200 p-2" rows="2"></textarea>
-              <div class="col-span-1 flex items-center gap-2">
-                <input id="postDue" type="datetime-local" class="rounded border-gray-200 p-2" />
-                <button id="postDueDone" title="Done selecting date" onclick="handlePostNow()" class="px-2 py-1 bg-green-100 text-green-700 rounded">✓</button>
-              </div>
+          <div id="teacherEventPanel" class="mt-4 hidden">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <input id="eventTitle" placeholder="Event name" class="col-span-2 rounded border-gray-200 p-2" />
+              <input id="eventDate" type="date" class="rounded border-gray-200 p-2" />
             </div>
             <div class="mt-3 flex justify-end">
-              <button id="postBtn" class="px-4 py-2 bg-green-600 text-white rounded">Post Assignment</button>
-              </div>
-            
+              <button id="eventAddBtn" class="px-4 py-2 bg-amber-500 text-white rounded">Add Event</button>
+            </div>
           </div>
 
-          <div class="mt-6">
-            <h3 class="font-semibold text-slate-800">Assignments</h3>
-            <div id="assignmentsList" class="mt-3 space-y-3"></div>
+          <div id="eventsList" class="mt-5 space-y-2"></div>
+        </section>
+
+        <section id="studentReminder" class="md:col-span-2 hidden">
+          <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+            <div class="font-semibold">Reminder</div>
+            <div id="studentReminderText" class="mt-1">You have a reminder from your teacher.</div>
+            <div id="studentReminderTime" class="mt-2 text-xs text-red-700"></div>
           </div>
         </section>
 
-        <!-- Right: School Events & Info -->
-        <aside class="bg-white rounded-xl p-6 shadow-md">
+        <section class="md:col-span-2 bg-white rounded-xl p-6 shadow-md border border-slate-100">
           <div class="flex items-center justify-between">
-            <h4 class="text-md font-semibold text-slate-900">📅 School Events</h4>
-            <span id="eventTeacherOnly" class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hidden">Teacher</span>
+            <h2 class="text-2xl font-semibold text-slate-900">Classroom Activity & Performance</h2>
+            <span class="text-xs text-slate-500">Below events</span>
           </div>
-          
-          <!-- Teacher: Add Event -->
-          <div id="teacherEventPanel" class="mt-4 hidden">
-            <div class="space-y-2">
-              <input id="eventTitle" placeholder="Event name" class="w-full p-2 border rounded text-sm" />
-              <input id="eventDate" type="date" class="w-full p-2 border rounded text-sm" />
-              <button id="eventAddBtn" class="w-full px-3 py-2 bg-green-600 text-white rounded text-sm">Add Event</button>
+
+          <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="p-4 rounded-lg border border-blue-100 bg-blue-50">
+              <div class="flex items-center justify-between">
+                <h3 class="font-semibold text-slate-800">Classroom Activities</h3>
+                <span id="activityTeacherOnly" class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hidden">Teacher</span>
+              </div>
+
+              <div id="activityTeacherPanel" class="mt-3 hidden">
+                <div class="grid grid-cols-1 gap-3">
+                  <input id="activityTitle" placeholder="Activity name" class="rounded border-gray-200 p-2" />
+                  <input id="activityDate" type="date" class="rounded border-gray-200 p-2" />
+                </div>
+                <div class="mt-3 flex justify-end">
+                  <button id="activityAddBtn" class="px-4 py-2 bg-blue-600 text-white rounded">Add Activity</button>
+                </div>
+              </div>
+
+              <div id="activityList" class="mt-4 space-y-2"></div>
+              <div id="activityRemindWrap" class="mt-3 flex justify-end hidden">
+                <button id="activityRemindBtn" class="px-3 py-2 bg-blue-600 text-white rounded text-sm">Remind All Students</button>
+              </div>
+            </div>
+
+            <div class="p-4 rounded-lg border border-purple-100 bg-purple-50">
+              <div class="flex items-center justify-between">
+                <h3 class="font-semibold text-slate-800">Performance Tasks</h3>
+                <span id="performanceTeacherOnly" class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded hidden">Teacher</span>
+              </div>
+
+              <div id="performanceTeacherPanel" class="mt-3 hidden">
+                <div class="grid grid-cols-1 gap-3">
+                  <input id="performanceTitle" placeholder="Task name" class="rounded border-gray-200 p-2" />
+                  <input id="performanceDate" type="date" class="rounded border-gray-200 p-2" />
+                </div>
+                <div class="mt-3 flex justify-end">
+                  <button id="performanceAddBtn" class="px-4 py-2 bg-purple-600 text-white rounded">Add Task</button>
+                </div>
+              </div>
+
+              <div id="performanceList" class="mt-4 space-y-2"></div>
+              <div id="performanceRemindWrap" class="mt-3 flex justify-end hidden">
+                <button id="performanceRemindBtn" class="px-3 py-2 bg-purple-600 text-white rounded text-sm">Remind All Students</button>
+              </div>
             </div>
           </div>
-          
-          <!-- Events List -->
-          <div id="eventsList" class="mt-4 space-y-2"></div>
-          
-          <div class="mt-6 pt-6 border-t">
-            <h5 class="text-sm font-semibold text-slate-900">How it works</h5>
-            <ol class="mt-3 text-slate-600 text-xs list-decimal list-inside space-y-1">
-              <li>The assignments panel is prioritized for students — mark complete from the list.</li>
-              <li>Teachers can post assignments with due dates; their posting controls appear when signed in as a teacher.</li>
-              <li>School events display upcoming dates for the entire class.</li>
-            </ol>
-          </div>
-        </aside>
+        </section>
+
+        <!-- Right: empty for now -->
+        <aside class="hidden md:block"></aside>
       </div>
     </main>
 
@@ -118,7 +147,63 @@
       if(display && cur){ display.textContent = `${cur.name} (${cur.role})`; }
       if(logoutBtn){ logoutBtn.addEventListener('click', ()=>{ localStorage.removeItem('currentUser::demo'); location.href = 'login.html'; }); }
     </script>
+    <!-- EmailJS -->
+<script src="https://cdn.jsdelivr.net/npm/emailjs@3/dist/email.min.js"></script>
+
+<script>
+  // Initialize EmailJS
+  (function () {
+    emailjs.init("EMFsMk00WldFjssGx");
+  })();
+
+  // DEMO student list (replace later with Firestore)
+  const students = [
+    { name: "James 1", email: "gabutanjames2005@gmail.com", status: "not_passed" },
+    { name: "James 2", email: "gabutanjames2024@gmail.com", status: "not_passed" }
+  ];
+
+  function sendReminder(subject, message) {
+    students
+      .filter(s => s.status === "not_passed")
+      .forEach(student => {
+        emailjs.send(
+          "service_z75vrbe",
+          "template_wlrec7p",
+          {
+            to_email: student.email,
+            student_name: student.name,
+            subject: subject,
+            message: message
+          }
+        )
+        .then(() => {
+          console.log("Email sent to", student.email);
+        })
+        .catch(err => {
+          console.error("Email failed", err);
+        });
+      });
+
+    alert("Reminder emails sent!");
+  }
+
+  document.getElementById("activityRemindBtn")?.addEventListener("click", () => {
+    sendReminder(
+      "Classroom Activity Reminder",
+      "Please complete and submit your classroom activity."
+    );
+  });
+
+  document.getElementById("performanceRemindBtn")?.addEventListener("click", () => {
+    sendReminder(
+      "Performance Task Reminder",
+      "Please complete and submit your performance task."
+    );
+  });
+</script>
+
 
     <script src="app.js"></script>
+
   </body>
 </html>

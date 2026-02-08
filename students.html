@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Students — Research</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script>window.tailwind = {config:{theme:{extend:{fontFamily:{sans:['Inter','ui-sans-serif','system-ui']}}}}}</script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="theme.css">
+  </head>
+  <body class="bg-slate-50 text-slate-800 font-sans">
+    <header class="bg-white shadow-sm">
+      <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <a href="dashboard.html" class="px-3 py-1 bg-slate-100 rounded text-sm">Back</a>
+          <div class="font-semibold text-indigo-600">Students</div>
+        </div>
+        <div class="flex items-center gap-4">
+          <div id="currentUserDisplay" class="text-sm text-slate-700"></div>
+          <button id="logoutBtn" class="px-3 py-1 bg-slate-100 rounded">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-6 py-8">
+      <section class="bg-white rounded-xl p-6 shadow-md">
+        <div class="flex items-center justify-between">
+          <h2 class="text-2xl font-semibold text-slate-900">Student Performance</h2>
+          <span class="text-xs text-slate-500">Activities & Performance Tasks</span>
+        </div>
+        <p class="mt-2 text-xs text-slate-500">Track student performance by choosing a category (Activity or Performance Task) and entering a score and total (e.g., 30/50).</p>
+
+        <div id="teacherOnly" class="mt-5">
+          <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <input id="studentName" placeholder="Student name" class="md:col-span-2 rounded border-gray-200 p-2" />
+            <select id="categorySelect" class="rounded border-gray-200 p-2">
+              <option value="activity">Activity</option>
+              <option value="performance">Performance Task</option>
+            </select>
+            <input id="scoreValue" type="number" min="0" placeholder="Score" class="rounded border-gray-200 p-2" />
+            <input id="overValue" type="number" min="1" placeholder="Over" class="rounded border-gray-200 p-2" />
+          </div>
+          <div class="mt-3 flex justify-end">
+            <button id="addStudentBtn" class="px-4 py-2 bg-amber-500 text-white rounded">Add / Update</button>
+          </div>
+        </div>
+
+        <div id="studentList" class="mt-6 space-y-2"></div>
+        <div id="noAccess" class="mt-6 text-sm text-red-600 hidden">Teacher access only.</div>
+      </section>
+    </main>
+
+    <div id="toastContainer" class="fixed bottom-6 right-6 space-y-2 z-50"></div>
+
+    <script src="students.js"></script>
+  </body>
+</html>

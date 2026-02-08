@@ -1,6 +1,6 @@
 /* Minimal additional styles for the demo */
 /* Minimal additional styles for the demo */
-body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; font-size:15px; line-height:1.45; }
+body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; font-size:19px; line-height:1.6; }
 
 #toastContainer > div { transition: opacity 0.4s ease; }
 

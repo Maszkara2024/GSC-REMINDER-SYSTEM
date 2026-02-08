@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Student Profile — Research</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script>window.tailwind = {config:{theme:{extend:{fontFamily:{sans:['Inter','ui-sans-serif','system-ui']}}}}}</script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="theme.css">
+  </head>
+  <body class="bg-slate-50 text-slate-800 font-sans">
+    <header class="bg-white shadow-sm">
+      <div class="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <a href="dashboard.html" class="px-3 py-1 bg-slate-100 rounded text-sm">Back</a>
+          <div class="font-semibold text-indigo-600">Student Profile</div>
+        </div>
+        <div class="flex items-center gap-4">
+          <div id="currentUserDisplay" class="text-sm text-slate-700"></div>
+          <button id="logoutBtn" class="px-3 py-1 bg-slate-100 rounded">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-6 py-8">
+      <section class="bg-white rounded-xl p-6 shadow-md">
+        <h2 class="text-xl font-semibold text-slate-900">Your Profile</h2>
+        <p class="mt-2 text-sm text-slate-600">Add your real email so teachers can contact you.</p>
+
+        <div class="mt-5 grid grid-cols-1 gap-3">
+          <label class="text-sm">Email address</label>
+          <input id="realEmail" type="email" placeholder="name@example.com" class="rounded border-gray-200 p-2" />
+        </div>
+
+        <div class="mt-4 flex items-center gap-3">
+          <button id="saveProfileBtn" class="px-4 py-2 bg-indigo-600 text-white rounded">Save</button>
+          <span id="saveStatus" class="text-sm text-slate-600"></span>
+        </div>
+
+        <div class="mt-6 text-xs text-slate-500">This data is stored locally for demo purposes.</div>
+      </section>
+    </main>
+
+    <script src="student-profile.js"></script>
+  </body>
+</html>
