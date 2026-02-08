@@ -1,21 +1,11 @@
-const HUGGINGFACE_API_KEY = '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';
-async function queryAI(prompt) {
-  try {
-    const res = await fetch('https://api-inference.huggingface.co/models/gpt2', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${HUGGINGFACE_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ inputs: prompt, options: { wait_for_model: true } })
-    });
-    const data = await res.json();
-    if(data.error) return "AI is busy or something went wrong.";
-    return Array.isArray(data) && data[0]?.generated_text ? data[0].generated_text : JSON.stringify(data);
-  } catch(e) {
-    console.error(e);
-    return "Error connecting to AI";
-  }
+async function queryAI(prompt){
+  const res = await fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt })
+  });
+  const data = await res.json();
+  return Array.isArray(data) && data[0]?.generated_text ? data[0].generated_text : JSON.stringify(data);
 }
 
 // Clean assignments + Golda chat implementation
@@ -80,6 +70,72 @@ function loadPerformance(){
 
 function loadStudentPerformances(){
   try{ studentPerformances = JSON.parse(localStorage.getItem(LS_STUDENTS_PERF_KEY) || '[]'); }catch(e){ studentPerformances = []; }
+}
+
+function seedDemoSchedule(){
+  const demoDisabled = localStorage.getItem('demoScheduleDisabled::demo') === '1';
+  if(demoDisabled) return;
+  const demoSeeded = localStorage.getItem('demoScheduleSeeded::demo') === '1';
+  if(demoSeeded) return;
+
+  if(classroomEvents.length || classroomActivities.length || performanceTasks.length){
+    localStorage.setItem('demoScheduleSeeded::demo', '1');
+    return;
+  }
+
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const addDays = (d) => {
+    const dt = new Date();
+    dt.setDate(dt.getDate() + d);
+    return dt.toISOString().slice(0, 10);
+  };
+
+  if(classroomEvents.length === 0){
+    const eventTitles = [
+      'Science Fair Orientation',
+      'Math Quiz Bee',
+      'Club Recruitment Day',
+      'Parents-Teachers Meeting',
+      'Library Reading Hour'
+    ];
+    classroomEvents = [
+      { id: `evt-${Date.now()}-1`, title: pick(eventTitles), date: addDays(Math.floor(Math.random() * 5) + 2) },
+      { id: `evt-${Date.now()}-2`, title: pick(eventTitles), date: addDays(Math.floor(Math.random() * 8) + 7) }
+    ];
+    saveEvents();
+  }
+
+  if(classroomActivities.length === 0){
+    const activityTitles = [
+      'Worksheet: Fraction Practice',
+      'Group Discussion: Ecosystems',
+      'Reading: Chapter 3 Summary',
+      'Lab Notes Check',
+      'Vocabulary Drill'
+    ];
+    classroomActivities = [
+      { id: `act-${Date.now()}-1`, title: pick(activityTitles), date: addDays(Math.floor(Math.random() * 4) + 1) },
+      { id: `act-${Date.now()}-2`, title: pick(activityTitles), date: addDays(Math.floor(Math.random() * 6) + 5) }
+    ];
+    saveActivities();
+  }
+
+  if(performanceTasks.length === 0){
+    const performanceTitles = [
+      'Oral Recitation: Chapter 2',
+      'Experiment Demo Presentation',
+      'Poetry Reading',
+      'Poster Design Output',
+      'Role Play Assessment'
+    ];
+    performanceTasks = [
+      { id: `perf-${Date.now()}-1`, title: pick(performanceTitles), date: addDays(Math.floor(Math.random() * 5) + 3) },
+      { id: `perf-${Date.now()}-2`, title: pick(performanceTitles), date: addDays(Math.floor(Math.random() * 9) + 9) }
+    ];
+    savePerformance();
+  }
+
+  localStorage.setItem('demoScheduleSeeded::demo', '1');
 }
 
 function formatEventDate(dateStr){
@@ -709,6 +765,7 @@ function init(){
   loadActivities();
   loadPerformance();
   loadStudentPerformances();
+  seedDemoSchedule();
   const roleSelect = document.getElementById('roleSelect');
   const teacherPanel = document.getElementById('teacherPanel');
   const postBtn = document.getElementById('postBtn');
@@ -730,6 +787,7 @@ function init(){
   const eventAddBtn = document.getElementById('eventAddBtn');
   const eventTitle = document.getElementById('eventTitle');
   const eventDate = document.getElementById('eventDate');
+  const eventClearBtn = document.getElementById('eventClearBtn');
   if(eventAddBtn){
     eventAddBtn.addEventListener('click', ()=>{
       const title = (eventTitle.value || '').trim();
@@ -743,10 +801,22 @@ function init(){
       showToast('Event added');
     });
   }
+  if(eventClearBtn){
+    eventClearBtn.addEventListener('click', ()=>{
+      const role = currentUser ? currentUser.role : (roleSelect ? roleSelect.value : 'student');
+      if(role !== 'teacher'){ showToast('Teacher access only'); return; }
+      classroomEvents = [];
+      saveEvents();
+      localStorage.setItem('demoScheduleDisabled::demo', '1');
+      renderEvents();
+      showToast('Events cleared');
+    });
+  }
 
   const activityAddBtn = document.getElementById('activityAddBtn');
   const activityTitle = document.getElementById('activityTitle');
   const activityDate = document.getElementById('activityDate');
+  const activityClearBtn = document.getElementById('activityClearBtn');
   if(activityAddBtn){
     activityAddBtn.addEventListener('click', ()=>{
       const title = (activityTitle.value || '').trim();
@@ -760,10 +830,22 @@ function init(){
       showToast('Activity added');
     });
   }
+  if(activityClearBtn){
+    activityClearBtn.addEventListener('click', ()=>{
+      const role = currentUser ? currentUser.role : (roleSelect ? roleSelect.value : 'student');
+      if(role !== 'teacher'){ showToast('Teacher access only'); return; }
+      classroomActivities = [];
+      saveActivities();
+      localStorage.setItem('demoScheduleDisabled::demo', '1');
+      renderActivities();
+      showToast('Activities cleared');
+    });
+  }
 
   const performanceAddBtn = document.getElementById('performanceAddBtn');
   const performanceTitle = document.getElementById('performanceTitle');
   const performanceDate = document.getElementById('performanceDate');
+  const performanceClearBtn = document.getElementById('performanceClearBtn');
   if(performanceAddBtn){
     performanceAddBtn.addEventListener('click', ()=>{
       const title = (performanceTitle.value || '').trim();
@@ -775,6 +857,17 @@ function init(){
       performanceDate.value = '';
       renderPerformance();
       showToast('Performance task added');
+    });
+  }
+  if(performanceClearBtn){
+    performanceClearBtn.addEventListener('click', ()=>{
+      const role = currentUser ? currentUser.role : (roleSelect ? roleSelect.value : 'student');
+      if(role !== 'teacher'){ showToast('Teacher access only'); return; }
+      performanceTasks = [];
+      savePerformance();
+      localStorage.setItem('demoScheduleDisabled::demo', '1');
+      renderPerformance();
+      showToast('Performance tasks cleared');
     });
   }
 
@@ -813,7 +906,7 @@ function init(){
   const input = document.getElementById('goldaInput');
   const send = document.getElementById('goldaSend');
   function escapeHtml(s){ return String(s||'').replace(/[&"'<>]/g, c=> ({'&':'&amp;','"':'&quot;','\'':'&#39;','<':'&lt;','>':'&gt;'}[c])); }
-  const HUGGINGFACE_API_KEY = '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';
+  
   if(chatToggle && chatPanel && messages){
     chatToggle.addEventListener('click', ()=> chatPanel.classList.toggle('hidden'));
     function append(who, text){
@@ -824,48 +917,8 @@ function init(){
       messages.scrollTop = messages.scrollHeight;
     }
 
-    async function queryAI(prompt){
-      if(!HUGGINGFACE_API_KEY){
-        return 'AI key missing. Add your Hugging Face key to enable chat.';
-      }
-      try {
-        const res = await fetch('https://api-inference.huggingface.co/models/gpt2', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${HUGGINGFACE_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ inputs: prompt, options: { wait_for_model: true } })
-        });
-        const data = await res.json();
-        if(data.error) return 'AI is busy or something went wrong.';
-        return Array.isArray(data) && data[0]?.generated_text ? data[0].generated_text : JSON.stringify(data);
-      } catch(e) {
-        console.error(e);
-        return 'Error connecting to AI';
-      }
-    }
+    
 
-    async function respondToAI(msg){
-      const role = currentUser ? currentUser.role : 'student';
-      let context = 'You are an assistant for a classroom website.\n';
-      context += `Role: ${role}\n`;
-      context += 'Remind and guide the user about assignments, activities, and performance tasks.\n';
-      context += 'Here are the current items:\n';
-
-      assignments.forEach(a => {
-        context += `Assignment: ${a.title}, Due: ${a.due ? new Date(a.due).toLocaleDateString() : '—'}\n`;
-      });
-      classroomActivities.forEach(a => {
-        context += `Activity: ${a.title}, Date: ${a.date}\n`;
-      });
-      performanceTasks.forEach(a => {
-        context += `Performance: ${a.title}, Date: ${a.date}\n`;
-      });
-
-      context += `User asked: "${msg}"\nProvide a concise, helpful response.`;
-      return await queryAI(context);
-    }
 
     if(send){
       send.addEventListener('click', async ()=>{
