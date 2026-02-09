@@ -15,12 +15,66 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <!-- Optional: provide a `FIREBASE_CONFIG` object in a firebase-config.js file to enable cloud persistence -->
     <script src="firebase-config.js" defer></script>
+    <style>
+      .login-shell {
+        position: relative;
+        background:
+          radial-gradient(circle at 20% 10%, rgba(251, 191, 36, 0.18), transparent 35%),
+          radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.16), transparent 35%),
+          radial-gradient(circle at 50% 80%, rgba(139, 92, 246, 0.12), transparent 40%),
+          #f8fafc;
+      }
+      .login-watermark {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        opacity: 0.18;
+        filter: grayscale(10%);
+      }
+      .login-watermark img {
+        width: min(72vmin, 560px);
+        filter: drop-shadow(0 10px 24px rgba(15, 23, 42, 0.18));
+      }
+      .login-card {
+        backdrop-filter: blur(6px);
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(203, 213, 225, 0.8);
+      }
+      .logo-badge {
+        width: 90px;
+        height: 90px;
+        border-radius: 999px;
+        background: #ffffff;
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        display: grid;
+        place-items: center;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+      }
+      .logo-badge img { width: 64px; height: 64px; object-fit: contain; }
+      @media (max-width: 640px){
+        .login-watermark img { width: 82vmin; }
+      }
+    </style>
   </head>
-  <body class="bg-slate-50 font-sans text-slate-800">
-    <main class="min-h-screen flex items-center justify-center px-4">
-      <div class="w-full max-w-md p-6 card">
-        <h2 class="text-xl font-semibold">Welcome back</h2>
-        <p class="text-sm muted mt-1">Sign in to continue to the research demo.</p>
+  <body class="login-shell font-sans text-slate-800">
+    <main class="relative min-h-screen flex items-center justify-center px-4">
+      <div class="login-watermark" aria-hidden="true">
+        <img src="./gsu-logo.png" alt="" />
+      </div>
+      <div class="relative z-10 w-full max-w-md p-6 card login-card">
+        <div class="flex items-center gap-4">
+          <div class="logo-badge">
+            <img src="./gsu-logo.png" alt="Golden Success University" />
+          </div>
+          <div>
+            <p class="text-xs uppercase tracking-widest text-amber-600 font-semibold">Golden Success University</p>
+            <h2 class="text-xl font-semibold">Welcome back</h2>
+            <p class="text-sm muted mt-1">Sign in to continue to the research demo.</p>
+          </div>
+        </div>
 
         <form id="loginForm" class="mt-4 space-y-3">
           <div>
