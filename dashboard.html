@@ -132,7 +132,7 @@
             Ask about activity pass counts or student information.
           </p>
 
-          <div id="assistantMessages" class="mt-4 space-y-2 text-sm"></div>
+          <div id="assistantMessages" class="mt-4 space-y-2 text-sm max-h-64 overflow-y-auto pr-1"></div>
 
           <div class="mt-4 flex items-center gap-2">
             <input id="assistantInput" class="flex-1 rounded border-gray-200 p-2 text-sm" placeholder="e.g., How many students passed the activity?" />
@@ -141,7 +141,10 @@
 
           <div class="mt-3 flex flex-wrap gap-2">
             <button class="assistantQuick px-3 py-1 bg-slate-100 rounded text-xs" data-question="How many students passed the activity?">Activity pass count</button>
+            <button class="assistantQuick px-3 py-1 bg-slate-100 rounded text-xs" data-question="How many students passed the performance task?">Performance pass count</button>
+            <button class="assistantQuick px-3 py-1 bg-slate-100 rounded text-xs" data-question="Show pending approvals">Pending approvals</button>
             <button class="assistantQuick px-3 py-1 bg-slate-100 rounded text-xs" data-question="Show student information">Student info</button>
+            <button class="assistantQuick px-3 py-1 bg-slate-100 rounded text-xs" data-question="Who are the top students?">Top students</button>
           </div>
         </section>
       </div>
@@ -168,8 +171,13 @@
 
   // DEMO student list (replace later with Firestore)
   const students = [
-    { name: "James 1", email: "gabutanjames2005@gmail.com", status: "not_passed" },
-    { name: "James 2", email: "gabutanjames2024@gmail.com", status: "not_passed" }
+    { name: "Ariana Lopez", email: "student1@gmail.com", status: "not_passed" },
+    { name: "Noah Ramirez", email: "student2@gmail.com", status: "not_passed" },
+    { name: "Mia Santos", email: "student3@gmail.com", status: "not_passed" },
+    { name: "Ethan Cruz", email: "student4@gmail.com", status: "not_passed" },
+    { name: "Liam Reyes", email: "student5@gmail.com", status: "not_passed" },
+    { name: "Sofia Navarro", email: "student6@gmail.com", status: "not_passed" },
+    { name: "Caleb Villanueva", email: "student7@gmail.com", status: "not_passed" }
   ];
 
   function sendReminder(subject, message) {
@@ -213,7 +221,7 @@
 </script>
 
 
-    <script src="./app.js"></script>
+    <script src="/app.js"></script>
 
   </body>
 </html>

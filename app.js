@@ -138,6 +138,61 @@ function seedDemoSchedule(){
   localStorage.setItem('demoScheduleSeeded::demo', '1');
 }
 
+function seedDemoStudentData(){
+  loadStudentPerformances();
+  loadActivities();
+  loadPerformance();
+
+  let users = [];
+  try{ users = JSON.parse(localStorage.getItem('users::demo') || '[]'); }catch(e){ users = []; }
+  const demoStudents = users.filter(u => u.role === 'student');
+  if(demoStudents.length === 0) return;
+
+  const perfSeed = Array.isArray(studentPerformances) ? [...studentPerformances] : [];
+  demoStudents.forEach((u, idx) => {
+    const hasActivity = perfSeed.some(p => p.name === u.name && p.category === 'activity');
+    const hasPerformance = perfSeed.some(p => p.name === u.name && p.category === 'performance');
+    if(!hasActivity){
+      const activityScore = 20 + ((idx * 7) % 25); // 20-44
+      perfSeed.push({ id: `demo-act-${u.id}`, name: u.name, category: 'activity', score: activityScore, over: 50 });
+    }
+    if(!hasPerformance){
+      const performanceScore = 25 + ((idx * 9) % 30); // 25-54
+      perfSeed.push({ id: `demo-perf-${u.id}`, name: u.name, category: 'performance', score: performanceScore, over: 60 });
+    }
+  });
+  studentPerformances = perfSeed;
+  try{ localStorage.setItem(LS_STUDENTS_PERF_KEY, JSON.stringify(studentPerformances)); }catch(e){ console.error(e); }
+
+  classroomActivities.forEach((act, idx) => {
+    if(!act.submissions) act.submissions = [];
+    demoStudents.forEach((u, i) => {
+      const already = act.submissions.find(s => s.studentId === u.id);
+      if(already) return;
+      const completed = (i + idx) % 3 === 0;
+      const submitted = !completed && (i + idx) % 2 === 0;
+      if(!completed && !submitted) return;
+      act.submissions.push({ studentId: u.id, studentName: u.name, submitted, completed });
+    });
+  });
+  saveActivities();
+
+  performanceTasks.forEach((task, idx) => {
+    if(!task.submissions) task.submissions = [];
+    demoStudents.forEach((u, i) => {
+      const already = task.submissions.find(s => s.studentId === u.id);
+      if(already) return;
+      const completed = (i + idx) % 4 === 0;
+      const submitted = !completed && (i + idx) % 2 === 1;
+      if(!completed && !submitted) return;
+      task.submissions.push({ studentId: u.id, studentName: u.name, submitted, completed });
+    });
+  });
+  savePerformance();
+
+  localStorage.setItem('demoStudentSeeded::demo', '1');
+}
+
 function formatEventDate(dateStr){
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
@@ -574,21 +629,118 @@ function getActivityPassSummary(){
       }
     });
   });
-  return { count: passed.size, names: Array.from(passed) };
+  let users = [];
+  try{ users = JSON.parse(localStorage.getItem('users::demo') || '[]'); }catch(e){ users = []; }
+  const studentNames = Array.from(new Set(users.filter(u => u.role === 'student').map(u => u.name)));
+  const total = studentNames.length ? new Set(studentNames).size : passed.size;
+  const notPassed = Math.max(total - passed.size, 0);
+  return { count: passed.size, names: Array.from(passed), total, notPassed };
+}
+
+function getPerformancePassSummary(){
+  loadPerformance();
+  const passed = new Set();
+  performanceTasks.forEach(task => {
+    (task.submissions || []).forEach(sub => {
+      if(sub.completed){
+        passed.add(sub.studentName || 'Student');
+      }
+    });
+  });
+  let users = [];
+  try{ users = JSON.parse(localStorage.getItem('users::demo') || '[]'); }catch(e){ users = []; }
+  const studentNames = users.filter(u => u.role === 'student').map(u => u.name);
+  const total = studentNames.length ? new Set(studentNames).size : passed.size;
+  const notPassed = Math.max(total - passed.size, 0);
+  return { count: passed.size, names: Array.from(passed), total, notPassed };
+}
+
+function getPendingApprovalsSummary(){
+  loadActivities();
+  loadPerformance();
+  let activityPending = 0;
+  let performancePending = 0;
+  classroomActivities.forEach(act => {
+    (act.submissions || []).forEach(sub => { if(sub.submitted) activityPending += 1; });
+  });
+  performanceTasks.forEach(task => {
+    (task.submissions || []).forEach(sub => { if(sub.submitted) performancePending += 1; });
+  });
+  return { activityPending, performancePending, total: activityPending + performancePending };
+}
+
+function getActivityListSummary(){
+  loadActivities();
+  if(!classroomActivities.length){ return 'No activities yet.'; }
+  const items = [...classroomActivities].sort((a, b) => new Date(a.date) - new Date(b.date));
+  return items.map(a => `• ${a.title} (${formatEventDate(a.date)})`).join('\n');
+}
+
+function getPerformanceListSummary(){
+  loadPerformance();
+  if(!performanceTasks.length){ return 'No performance tasks yet.'; }
+  const items = [...performanceTasks].sort((a, b) => new Date(a.date) - new Date(b.date));
+  return items.map(a => `• ${a.title} (${formatEventDate(a.date)})`).join('\n');
+}
+
+function getTopStudentsSummary(){
+  loadStudentPerformances();
+  if(!Array.isArray(studentPerformances) || studentPerformances.length === 0){
+    return 'No student performance records yet.';
+  }
+  const bucket = new Map();
+  studentPerformances.forEach(s => {
+    const name = s.name || 'Student';
+    const score = Number(s.score ?? s.value ?? 0);
+    const over = Number(s.over ?? 100);
+    const pct = over > 0 ? (score / over) * 100 : 0;
+    if(!bucket.has(name)) bucket.set(name, []);
+    bucket.get(name).push(pct);
+  });
+  const ranked = Array.from(bucket.entries())
+    .map(([name, pcts]) => ({
+      name,
+      avg: Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length)
+    }))
+    .sort((a, b) => b.avg - a.avg)
+    .slice(0, 3);
+
+  if(ranked.length === 0){ return 'No student performance records yet.'; }
+  return ranked.map((r, i) => `${i + 1}. ${r.name} — ${r.avg}% avg`).join('\n');
 }
 
 function getStudentInfoSummary(){
   loadStudentPerformances();
-  if(!Array.isArray(studentPerformances) || studentPerformances.length === 0){
+  let users = [];
+  try{ users = JSON.parse(localStorage.getItem('users::demo') || '[]'); }catch(e){ users = []; }
+  const studentNames = users.filter(u => u.role === 'student').map(u => u.name);
+
+  const records = Array.isArray(studentPerformances) ? studentPerformances : [];
+  if(studentNames.length === 0 && records.length === 0){
     return 'No student performance records yet. Add entries in the Students page.';
   }
 
-  const lines = studentPerformances.map(s => {
-    const category = s.category === 'performance' ? 'Performance Task' : 'Activity';
-    const score = Number(s.score ?? s.value ?? 0);
-    const over = Number(s.over ?? 100);
-    const pct = over > 0 ? Math.round((score / over) * 100) : 0;
-    return `${s.name} — ${category}: ${score}/${over} (${pct}%)`;
+  const lines = [];
+  const allNames = studentNames.length ? studentNames : Array.from(new Set(records.map(r => r.name)));
+  allNames.forEach(name => {
+    const perStudent = records.filter(r => r.name === name);
+    if(perStudent.length === 0){
+      lines.push(`${name} — No records yet.`);
+      return;
+    }
+    const totalScore = perStudent.reduce((sum, s) => sum + Number(s.score ?? s.value ?? 0), 0);
+    const totalOver = perStudent.reduce((sum, s) => sum + Number(s.over ?? 100), 0);
+    const pct = totalOver > 0 ? Math.round((totalScore / totalOver) * 100) : 0;
+    const activity = perStudent.filter(s => s.category !== 'performance');
+    const performance = perStudent.filter(s => s.category === 'performance');
+    const activityScore = activity.reduce((sum, s) => sum + Number(s.score ?? s.value ?? 0), 0);
+    const activityOver = activity.reduce((sum, s) => sum + Number(s.over ?? 100), 0);
+    const performanceScore = performance.reduce((sum, s) => sum + Number(s.score ?? s.value ?? 0), 0);
+    const performanceOver = performance.reduce((sum, s) => sum + Number(s.over ?? 100), 0);
+    const details = [];
+    if(activity.length){ details.push(`Activity ${activityScore}/${activityOver}`); }
+    if(performance.length){ details.push(`Performance ${performanceScore}/${performanceOver}`); }
+    lines.push(`${name} — Total ${totalScore}/${totalOver} (${pct}%)${details.length ? ' • ' + details.join(' • ') : ''}`);
   });
   return lines.join('\n');
 }
@@ -599,18 +751,47 @@ function assistantReplyFor(prompt){
 
   if(q.includes('how many') && q.includes('pass') && q.includes('activity')){
     const summary = getActivityPassSummary();
-    if(summary.count === 0){
-      return 'No students have passed the activity yet.';
+    if(summary.total === 0){
+      return 'No students found yet.';
     }
     const list = summary.names.length ? `Passed students: ${summary.names.join(', ')}.` : '';
-    return `Total passed in activity: ${summary.count}. ${list}`.trim();
+    return `Activity pass count: ${summary.count}/${summary.total}. Not passed: ${summary.notPassed}. ${list}`.trim();
+  }
+
+  if(q.includes('how many') && q.includes('pass') && (q.includes('performance') || q.includes('task'))){
+    const summary = getPerformancePassSummary();
+    if(summary.total === 0){
+      return 'No students found yet.';
+    }
+    const list = summary.names.length ? `Passed students: ${summary.names.join(', ')}.` : '';
+    return `Performance pass count: ${summary.count}/${summary.total}. Not passed: ${summary.notPassed}. ${list}`.trim();
+  }
+
+  if(q.includes('pending') || q.includes('awaiting') || (q.includes('approval') || q.includes('approve'))){
+    const pending = getPendingApprovalsSummary();
+    if(pending.total === 0){
+      return 'No pending approvals right now.';
+    }
+    return `Pending approvals — Activities: ${pending.activityPending}, Performance: ${pending.performancePending}. Total: ${pending.total}.`;
+  }
+
+  if(q.includes('activity') && (q.includes('list') || q.includes('show'))){
+    return getActivityListSummary();
+  }
+
+  if((q.includes('performance') || q.includes('task')) && (q.includes('list') || q.includes('show'))){
+    return getPerformanceListSummary();
   }
 
   if(q.includes('student') && (q.includes('info') || q.includes('information') || q.includes('list'))){
     return getStudentInfoSummary();
   }
 
-  return 'Try asking: “How many students passed the activity?” or “Show student information”.';
+  if(q.includes('top') && q.includes('student')){
+    return getTopStudentsSummary();
+  }
+
+  return 'Try: “How many students passed the activity?”, “How many students passed the performance task?”, “Show pending approvals”, “List activities”, “List performance tasks”, or “Show student information”.';
 }
 
 function appendAssistantMessage(role, text){
@@ -618,9 +799,42 @@ function appendAssistantMessage(role, text){
   if(!wrap) return;
   const bubble = document.createElement('div');
   bubble.className = role === 'user'
-    ? 'ml-auto max-w-[85%] rounded-lg bg-indigo-600 text-white px-3 py-2 whitespace-pre-line'
-    : 'mr-auto max-w-[85%] rounded-lg bg-slate-100 text-slate-800 px-3 py-2 whitespace-pre-line';
-  bubble.textContent = text;
+    ? 'ml-auto max-w-[85%] rounded-xl bg-indigo-600 text-white px-3 py-2 shadow-sm'
+    : 'mr-auto max-w-[85%] rounded-xl bg-amber-50 text-slate-800 px-3 py-2 border border-amber-200 shadow-sm';
+
+  const lines = (text || '').split('\n').map(l => l.trim()).filter(Boolean);
+  if(role === 'assistant'){
+    lines.forEach((line) => {
+      const row = document.createElement('div');
+      const isBullet = line.startsWith('•');
+      const isRank = /^\d+\./.test(line);
+      row.className = isBullet || isRank
+        ? 'flex items-start gap-2 text-sm'
+        : 'text-sm';
+      if(isBullet){
+        const dot = document.createElement('span');
+        dot.className = 'mt-1 h-2 w-2 rounded-full bg-amber-400 flex-none';
+        row.appendChild(dot);
+        const textEl = document.createElement('span');
+        textEl.textContent = line.replace(/^•\s*/, '');
+        row.appendChild(textEl);
+      } else if(isRank){
+        const badge = document.createElement('span');
+        badge.className = 'px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-xs font-semibold flex-none';
+        badge.textContent = line.split(' ')[0];
+        row.appendChild(badge);
+        const textEl = document.createElement('span');
+        textEl.textContent = line.replace(/^\d+\.\s*/, '');
+        row.appendChild(textEl);
+      } else {
+        row.textContent = line;
+      }
+      bubble.appendChild(row);
+    });
+  } else {
+    bubble.textContent = text;
+  }
+
   wrap.appendChild(bubble);
   wrap.scrollTop = wrap.scrollHeight;
 }
@@ -837,14 +1051,64 @@ function init(){
   // Seed demo accounts if missing
   try{
     const users = JSON.parse(localStorage.getItem('users::demo') || '[]');
+    const demoStudentSeeds = [
+      { key: 'student1', name: 'Ariana Lopez', email: 'student1@gmail.com' },
+      { key: 'student2', name: 'Noah Ramirez', email: 'student2@gmail.com' },
+      { key: 'student3', name: 'Mia Santos', email: 'student3@gmail.com' },
+      { key: 'student4', name: 'Ethan Cruz', email: 'student4@gmail.com' },
+      { key: 'student5', name: 'Liam Reyes', email: 'student5@gmail.com' },
+      { key: 'student6', name: 'Sofia Navarro', email: 'student6@gmail.com' },
+      { key: 'student7', name: 'Caleb Villanueva', email: 'student7@gmail.com' }
+    ];
+    const demoNameMap = demoStudentSeeds.reduce((acc, s) => { acc[s.key] = s.name; return acc; }, {});
+
     const ensureUser = (name, role, email) => {
-      if(!users.find(u => u.email === email)){
+      const existing = users.find(u => u.email === email);
+      if(!existing){
         users.push({ id: `${role}-${name}`, name, email, password: '123', role });
+        return;
       }
+      existing.role = role;
+      if(!existing.id){ existing.id = `${role}-${name}`; }
+      if(existing.name !== name){ existing.name = name; }
     };
-    ['student1','student2','student3','student4','student5'].forEach(n => ensureUser(n, 'student', `${n}@gmail.com`));
+
+    demoStudentSeeds.forEach(s => ensureUser(s.name, 'student', s.email));
     ['teacher1','teacher2','teacher3','teacher4','teacher5'].forEach(n => ensureUser(n, 'teacher', `${n}@gmail.com`));
     localStorage.setItem('users::demo', JSON.stringify(users));
+
+    const renameIfMatches = (n) => demoNameMap[n] || n;
+    try{
+      const perf = JSON.parse(localStorage.getItem(LS_STUDENTS_PERF_KEY) || '[]');
+      if(Array.isArray(perf)){
+        const updated = perf.map(p => (demoNameMap[p.name] ? { ...p, name: demoNameMap[p.name] } : p));
+        localStorage.setItem(LS_STUDENTS_PERF_KEY, JSON.stringify(updated));
+      }
+    }catch(e){}
+
+    try{
+      const acts = JSON.parse(localStorage.getItem(LS_ACTIVITIES_KEY) || '[]');
+      if(Array.isArray(acts)){
+        acts.forEach(a => {
+          if(Array.isArray(a.submissions)){
+            a.submissions.forEach(s => { if(s.studentName) s.studentName = renameIfMatches(s.studentName); });
+          }
+        });
+        localStorage.setItem(LS_ACTIVITIES_KEY, JSON.stringify(acts));
+      }
+    }catch(e){}
+
+    try{
+      const tasks = JSON.parse(localStorage.getItem(LS_PERFORMANCE_KEY) || '[]');
+      if(Array.isArray(tasks)){
+        tasks.forEach(t => {
+          if(Array.isArray(t.submissions)){
+            t.submissions.forEach(s => { if(s.studentName) s.studentName = renameIfMatches(s.studentName); });
+          }
+        });
+        localStorage.setItem(LS_PERFORMANCE_KEY, JSON.stringify(tasks));
+      }
+    }catch(e){}
   }catch(e){}
 
   loadAssignments();
@@ -853,6 +1117,7 @@ function init(){
   loadPerformance();
   loadStudentPerformances();
   seedDemoSchedule();
+  seedDemoStudentData();
   const roleSelect = document.getElementById('roleSelect');
   const teacherPanel = document.getElementById('teacherPanel');
   const postBtn = document.getElementById('postBtn');
