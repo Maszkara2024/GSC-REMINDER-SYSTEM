@@ -3,6 +3,28 @@
     "cors": "^2.8.6",
     "dotenv": "^17.2.4",
     "express": "^5.2.1",
-    "node-fetch": "^3.3.2"
-  }
+    "node-fetch": "^3.3.2",
+    "twilio": "^5.12.1"
+  },
+  "name": "vscode-research",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "This is a minimalist demo site for the research project. It includes an interactive \"Live Preview\" where users can enter a task, choose a time, and set a simulated reminder.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Maszkara2024/GSC-REMINDER-SYSTEM.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  
+  "bugs": {
+    "url": "https://github.com/Maszkara2024/GSC-REMINDER-SYSTEM/issues"
+  },
+  "homepage": "https://github.com/Maszkara2024/GSC-REMINDER-SYSTEM#readme"
 }

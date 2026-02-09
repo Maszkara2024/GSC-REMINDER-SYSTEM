@@ -564,6 +564,93 @@ function renderStudentReminder(){
   wrap.classList.remove('hidden');
 }
 
+function getActivityPassSummary(){
+  loadActivities();
+  const passed = new Set();
+  classroomActivities.forEach(act => {
+    (act.submissions || []).forEach(sub => {
+      if(sub.completed){
+        passed.add(sub.studentName || 'Student');
+      }
+    });
+  });
+  return { count: passed.size, names: Array.from(passed) };
+}
+
+function getStudentInfoSummary(){
+  loadStudentPerformances();
+  if(!Array.isArray(studentPerformances) || studentPerformances.length === 0){
+    return 'No student performance records yet. Add entries in the Students page.';
+  }
+
+  const lines = studentPerformances.map(s => {
+    const category = s.category === 'performance' ? 'Performance Task' : 'Activity';
+    const score = Number(s.score ?? s.value ?? 0);
+    const over = Number(s.over ?? 100);
+    const pct = over > 0 ? Math.round((score / over) * 100) : 0;
+    return `${s.name} — ${category}: ${score}/${over} (${pct}%)`;
+  });
+  return lines.join('\n');
+}
+
+function assistantReplyFor(prompt){
+  const q = (prompt || '').trim().toLowerCase();
+  if(!q){ return 'Please type a question.'; }
+
+  if(q.includes('how many') && q.includes('pass') && q.includes('activity')){
+    const summary = getActivityPassSummary();
+    if(summary.count === 0){
+      return 'No students have passed the activity yet.';
+    }
+    const list = summary.names.length ? `Passed students: ${summary.names.join(', ')}.` : '';
+    return `Total passed in activity: ${summary.count}. ${list}`.trim();
+  }
+
+  if(q.includes('student') && (q.includes('info') || q.includes('information') || q.includes('list'))){
+    return getStudentInfoSummary();
+  }
+
+  return 'Try asking: “How many students passed the activity?” or “Show student information”.';
+}
+
+function appendAssistantMessage(role, text){
+  const wrap = document.getElementById('assistantMessages');
+  if(!wrap) return;
+  const bubble = document.createElement('div');
+  bubble.className = role === 'user'
+    ? 'ml-auto max-w-[85%] rounded-lg bg-indigo-600 text-white px-3 py-2 whitespace-pre-line'
+    : 'mr-auto max-w-[85%] rounded-lg bg-slate-100 text-slate-800 px-3 py-2 whitespace-pre-line';
+  bubble.textContent = text;
+  wrap.appendChild(bubble);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function initAssistant(){
+  const input = document.getElementById('assistantInput');
+  const sendBtn = document.getElementById('assistantSendBtn');
+  const quickBtns = document.querySelectorAll('.assistantQuick');
+
+  if(!input || !sendBtn) return;
+
+  const send = (text) => {
+    const message = (text || input.value || '').trim();
+    if(!message) return;
+    appendAssistantMessage('user', message);
+    const reply = assistantReplyFor(message);
+    appendAssistantMessage('assistant', reply);
+    input.value = '';
+  };
+
+  sendBtn.addEventListener('click', () => send());
+  input.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); send(); }
+  });
+
+  quickBtns.forEach(btn => {
+    btn.addEventListener('click', () => send(btn.dataset.question || btn.textContent));
+  });
+}
+
 function getLatestTitle(items, fallback){
   if(!items || items.length === 0) return fallback;
   let latest = items[0];
@@ -899,48 +986,12 @@ function init(){
     });
   }
 
-  // Golda chat
-  const chatToggle = document.getElementById('goldaToggle');
-  const chatPanel = document.getElementById('goldaPanel');
-  const messages = document.getElementById('goldaMessages');
-  const input = document.getElementById('goldaInput');
-  const send = document.getElementById('goldaSend');
-  function escapeHtml(s){ return String(s||'').replace(/[&"'<>]/g, c=> ({'&':'&amp;','"':'&quot;','\'':'&#39;','<':'&lt;','>':'&gt;'}[c])); }
-  
-  if(chatToggle && chatPanel && messages){
-    chatToggle.addEventListener('click', ()=> chatPanel.classList.toggle('hidden'));
-    function append(who, text){
-      const m = document.createElement('div');
-      m.className = who === 'user' ? 'text-right text-sm' : 'text-left text-sm';
-      m.innerHTML = `<div class="inline-block p-2 rounded ${who==='user' ? 'bg-green-600 text-white' : 'bg-white border'}">${escapeHtml(text)}</div>`;
-      messages.appendChild(m);
-      messages.scrollTop = messages.scrollHeight;
-    }
-
-    
-
-
-    if(send){
-      send.addEventListener('click', async ()=>{
-        const txt = (input.value||'').trim();
-        if(!txt) return;
-        input.value='';
-        append('user', txt);
-        append('golda', '⏳ Thinking...');
-        const aiReply = await respondToAI(txt);
-        const last = messages.lastChild;
-        if(last && last.textContent.includes('⏳ Thinking')) last.remove();
-        append('golda', aiReply);
-      });
-    }
-
-  }
-
   renderAssignments();
   renderEvents();
   renderActivities();
   renderPerformance();
   renderStudentReminder();
+  initAssistant();
 }
 
 if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

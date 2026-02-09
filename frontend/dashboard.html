@@ -7,7 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script>window.tailwind = {config:{theme:{extend:{fontFamily:{sans:['Inter','ui-sans-serif','system-ui']}}}}}</script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="./styles.css">
     <link rel="stylesheet" href="theme.css">
     <!-- Firebase SDK (optional) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -123,25 +123,31 @@
           </div>
         </section>
 
-        <!-- Right: empty for now -->
-        <aside class="hidden md:block"></aside>
+        <section id="assistantPanel" class="md:col-span-1 bg-white rounded-xl p-6 shadow-md border border-slate-100">
+          <div class="flex items-center justify-between">
+            <h2 class="text-xl font-semibold text-slate-900">AI Assistant</h2>
+            <span class="text-xs text-slate-500">Local insights</span>
+          </div>
+          <p class="mt-2 text-xs text-slate-500">
+            Ask about activity pass counts or student information.
+          </p>
+
+          <div id="assistantMessages" class="mt-4 space-y-2 text-sm"></div>
+
+          <div class="mt-4 flex items-center gap-2">
+            <input id="assistantInput" class="flex-1 rounded border-gray-200 p-2 text-sm" placeholder="e.g., How many students passed the activity?" />
+            <button id="assistantSendBtn" class="px-3 py-2 bg-indigo-600 text-white rounded text-sm">Send</button>
+          </div>
+
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button class="assistantQuick px-3 py-1 bg-slate-100 rounded text-xs" data-question="How many students passed the activity?">Activity pass count</button>
+            <button class="assistantQuick px-3 py-1 bg-slate-100 rounded text-xs" data-question="Show student information">Student info</button>
+          </div>
+        </section>
       </div>
     </main>
 
     <div id="toastContainer" class="fixed bottom-6 right-6 space-y-2 z-50"></div>
-
-    <!-- Golda Chat widget -->
-    <div id="goldaWidget" class="fixed bottom-6 left-6 z-50">
-      <button id="goldaToggle" class="bg-indigo-600 text-white rounded-full w-12 h-12 shadow flex items-center justify-center">G</button>
-      <div id="goldaPanel" class="hidden mt-2 w-80 bg-white border rounded shadow-lg overflow-hidden">
-        <div class="p-3 bg-indigo-600 text-white font-semibold">Golda — Assistant</div>
-        <div id="goldaMessages" class="p-3 h-48 overflow-auto bg-slate-50"></div>
-        <div class="p-2 border-t flex gap-2">
-          <input id="goldaInput" placeholder="Ask Golda..." class="flex-1 p-2 rounded border-gray-200" />
-          <button id="goldaSend" class="px-3 py-2 bg-indigo-600 text-white rounded">Send</button>
-        </div>
-      </div>
-    </div>
 
     <script>
       // show current user and handle logout
@@ -207,7 +213,7 @@
 </script>
 
 
-    <script src="app.js"></script>
+    <script src="./app.js"></script>
 
   </body>
 </html>
