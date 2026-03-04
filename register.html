@@ -10,9 +10,7 @@
     <link rel="stylesheet" href=styles.css">
     <link rel="stylesheet" href="theme.css">
     <!-- Firebase SDK (optional) -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
     <script src="firebase-config.js" defer></script>
   </head>
   <body class="bg-slate-50 font-sans text-slate-800">
@@ -94,5 +92,68 @@
         setTimeout(()=> location.href = 'login.html?registered=1', 900);
       });
     </script>
+
+    <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBQNGAQGWwKrWHsDfN7mZwb4LA9jP8V8xI",
+    authDomain: "gsc-reminder-system.firebaseapp.com",
+    projectId: "gsc-reminder-system",
+    storageBucket: "gsc-reminder-system.firebasestorage.app",
+    messagingSenderId: "779246880500",
+    appId: "1:779246880500:web:7da307e1ee407ad36a80a1"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // Function to show messages
+  function showMsg(text, ok) {
+    const el = document.getElementById('msg');
+    el.textContent = text;
+    el.className = ok ? 'mt-3 text-sm text-green-600' : 'mt-3 text-sm text-red-600';
+  }
+
+  // Handle Form Submission
+  document.getElementById('registerForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const name = document.getElementById('name').value;
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    const confirm = document.getElementById('confirm').value;
+    const role = document.getElementById('role').value;
+    const agree = document.getElementById('agree').checked;
+
+    if(password !== confirm) return showMsg('Passwords do not match');
+    if(!agree) return showMsg('Please agree to terms');
+
+    try {
+      // 1. Create User Account
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // 2. Save Role and Name to Firestore
+      await setDoc(doc(db, "users", user.uid), {
+        name: name,
+        email: email,
+        role: role,
+        createdAt: new Date()
+      });
+
+      showMsg('Account created! Redirecting...', true);
+      setTimeout(() => window.location.href = 'login.html', 1500);
+
+    } catch (error) {
+      showMsg(error.message);
+    }
+  });
+</script>
+
   </body>
 </html>

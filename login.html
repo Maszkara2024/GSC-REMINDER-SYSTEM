@@ -10,11 +10,9 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="theme.css">
     <!-- Firebase SDK (optional) -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
     <!-- Optional: provide a `FIREBASE_CONFIG` object in a firebase-config.js file to enable cloud persistence -->
-    <script src="firebase-config.js" defer></script>
+    
     <style>
       .login-shell {
         position: relative;
@@ -97,47 +95,74 @@
       </div>
     </main>
 
-    <script>
-      function showMsg(text, ok){ const el = document.getElementById('msg'); el.textContent = text; el.className = ok? 'mt-3 text-sm text-green-600' : 'mt-3 text-sm text-red-600'; }
-      // show redirect message if came from registration
-      if(new URLSearchParams(window.location.search).get('registered')){
-        showMsg('Registration successful — please login', true);
+    
+
+    <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBQNGAQGWwKrWHsDfN7mZwb4LA9jP8V8xI",
+    authDomain: "gsc-reminder-system.firebaseapp.com",
+    projectId: "gsc-reminder-system",
+    storageBucket: "gsc-reminder-system.firebasestorage.app",
+    messagingSenderId: "779246880500",
+    appId: "1:779246880500:web:7da307e1ee407ad36a80a1"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  function showMsg(text, ok) {
+    const el = document.getElementById('msg');
+    el.textContent = text;
+    el.className = ok ? 'mt-3 text-sm text-green-600' : 'mt-3 text-sm text-red-600';
+  }
+
+  // Handle Login
+  document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('email').value.trim().toLowerCase();
+    const password = document.getElementById('password').value;
+
+    try {
+      // 1. Sign in the user
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // 2. Fetch their Role from Firestore
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        
+        // 3. Store in localStorage so the dashboard knows who this is
+        localStorage.setItem('currentUser::demo', JSON.stringify({
+          id: user.uid,
+          name: userData.name,
+          email: userData.email,
+          role: userData.role
+        }));
+
+        showMsg('Login successful! Redirecting...', true);
+        
+        // 4. Send to dashboard
+        setTimeout(() => window.location.href = 'dashboard.html', 800);
+      } else {
+        showMsg("User data not found in database.");
       }
 
-      document.getElementById('loginForm').addEventListener('submit', async function(e){
-        e.preventDefault();
-        const email = document.getElementById('email').value.trim().toLowerCase();
-        const password = document.getElementById('password').value;
-        // if Firebase config present, use Firebase Auth
-        if(window.FIREBASE_CONFIG && window.firebase){
-          try{
-            if(!firebase.apps.length) firebase.initializeApp(window.FIREBASE_CONFIG);
-            const userCred = await firebase.auth().signInWithEmailAndPassword(email, password);
-            const u = userCred.user;
-            // store a minimal currentUser for compatibility
-            const userObj = { id: u.uid, name: u.displayName || u.email, email: u.email, role: 'student' };
-            localStorage.setItem('currentUser::demo', JSON.stringify(userObj));
-            showMsg('Login successful — redirecting...', true);
-            setTimeout(()=> location.href = 'dashboard.html', 600);
-          }catch(err){ showMsg(err.message || 'Firebase login failed'); }
-          return;
-        }
+    } catch (error) {
+      showMsg("Login failed: " + error.message);
+    }
+  });
 
-        // fallback: localStorage-based demo accounts
-        const users = JSON.parse(localStorage.getItem('users::demo') || '[]');
-        const user = users.find(u=> u.email === email && u.password === password);
-        if(!user){ showMsg('Invalid credentials'); return; }
-        localStorage.setItem('currentUser::demo', JSON.stringify({ id: user.id, name: user.name, email: user.email, role: user.role }));
-        showMsg('Login successful — redirecting...', true);
-        setTimeout(()=> location.href = 'dashboard.html', 600);
-      });
-
-      // if already logged in, redirect to dashboard
-      (function(){
-        // if Firebase available and user already signed in, prefer that
-        if(window.FIREBASE_CONFIG && window.firebase && firebase.auth().currentUser){ location.href = 'dashboard.html'; return; }
-        const cur = localStorage.getItem('currentUser::demo'); if(cur) location.href = 'dashboard.html';
-      })();
-    </script>
+  // Check if already logged in
+  if (localStorage.getItem('currentUser::demo')) {
+    window.location.href = 'dashboard.html';
+  }
+</script>
   </body>
 </html>

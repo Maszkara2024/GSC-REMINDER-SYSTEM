@@ -1,3 +1,15 @@
+// Global cache for the AI to read from
+let firebaseState = {
+  activities: [],
+  performance: [],
+  students: []
+};
+
+// Function for the Dashboard to update the AI's "brain"
+window.updateAIBrain = (key, data) => {
+  firebaseState[key] = data;
+};
+
 async function queryAI(prompt){
   const res = await fetch('/api/ai', {
     method: 'POST',
@@ -13,9 +25,9 @@ async function queryAI(prompt){
 
 
 
-const LS_KEY = 'assignments::demo';
-const LS_EVENTS_KEY = 'classroomEvents::demo';
-const LS_ACTIVITIES_KEY = 'classroomActivities::demo';
+
+
+
 const LS_PERFORMANCE_KEY = 'classroomPerformance::demo';
 const LS_STUDENTS_PERF_KEY = 'studentsPerformance::demo';
 const LS_REMINDER_KEY = 'teacherReminder::demo';
@@ -34,22 +46,6 @@ function showToast(msg){
   el.textContent = msg;
   container.appendChild(el);
   setTimeout(()=> el.remove(), 3000);
-}
-
-function saveAssignments(){
-  try{ localStorage.setItem(LS_KEY, JSON.stringify(assignments)); }catch(e){ console.error(e); }
-}
-
-function loadAssignments(){
-  try{ assignments = JSON.parse(localStorage.getItem(LS_KEY) || '[]'); }catch(e){ assignments = []; }
-}
-
-function saveEvents(){
-  try{ localStorage.setItem(LS_EVENTS_KEY, JSON.stringify(classroomEvents)); }catch(e){ console.error(e); }
-}
-
-function loadEvents(){
-  try{ classroomEvents = JSON.parse(localStorage.getItem(LS_EVENTS_KEY) || '[]'); }catch(e){ classroomEvents = []; }
 }
 
 function saveActivities(){
@@ -72,16 +68,7 @@ function loadStudentPerformances(){
   try{ studentPerformances = JSON.parse(localStorage.getItem(LS_STUDENTS_PERF_KEY) || '[]'); }catch(e){ studentPerformances = []; }
 }
 
-function seedDemoSchedule(){
-  const demoDisabled = localStorage.getItem('demoScheduleDisabled::demo') === '1';
-  if(demoDisabled) return;
-  const demoSeeded = localStorage.getItem('demoScheduleSeeded::demo') === '1';
-  if(demoSeeded) return;
 
-  if(classroomEvents.length || classroomActivities.length || performanceTasks.length){
-    localStorage.setItem('demoScheduleSeeded::demo', '1');
-    return;
-  }
 
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
   const addDays = (d) => {
@@ -102,7 +89,7 @@ function seedDemoSchedule(){
       { id: `evt-${Date.now()}-1`, title: pick(eventTitles), date: addDays(Math.floor(Math.random() * 5) + 2) },
       { id: `evt-${Date.now()}-2`, title: pick(eventTitles), date: addDays(Math.floor(Math.random() * 8) + 7) }
     ];
-    saveEvents();
+    
   }
 
   if(classroomActivities.length === 0){
@@ -135,63 +122,10 @@ function seedDemoSchedule(){
     savePerformance();
   }
 
-  localStorage.setItem('demoScheduleSeeded::demo', '1');
-}
+ 
 
-function seedDemoStudentData(){
-  loadStudentPerformances();
-  loadActivities();
-  loadPerformance();
 
-  let users = [];
-  try{ users = JSON.parse(localStorage.getItem('users::demo') || '[]'); }catch(e){ users = []; }
-  const demoStudents = users.filter(u => u.role === 'student');
-  if(demoStudents.length === 0) return;
 
-  const perfSeed = Array.isArray(studentPerformances) ? [...studentPerformances] : [];
-  demoStudents.forEach((u, idx) => {
-    const hasActivity = perfSeed.some(p => p.name === u.name && p.category === 'activity');
-    const hasPerformance = perfSeed.some(p => p.name === u.name && p.category === 'performance');
-    if(!hasActivity){
-      const activityScore = 20 + ((idx * 7) % 25); // 20-44
-      perfSeed.push({ id: `demo-act-${u.id}`, name: u.name, category: 'activity', score: activityScore, over: 50 });
-    }
-    if(!hasPerformance){
-      const performanceScore = 25 + ((idx * 9) % 30); // 25-54
-      perfSeed.push({ id: `demo-perf-${u.id}`, name: u.name, category: 'performance', score: performanceScore, over: 60 });
-    }
-  });
-  studentPerformances = perfSeed;
-  try{ localStorage.setItem(LS_STUDENTS_PERF_KEY, JSON.stringify(studentPerformances)); }catch(e){ console.error(e); }
-
-  classroomActivities.forEach((act, idx) => {
-    if(!act.submissions) act.submissions = [];
-    demoStudents.forEach((u, i) => {
-      const already = act.submissions.find(s => s.studentId === u.id);
-      if(already) return;
-      const completed = (i + idx) % 3 === 0;
-      const submitted = !completed && (i + idx) % 2 === 0;
-      if(!completed && !submitted) return;
-      act.submissions.push({ studentId: u.id, studentName: u.name, submitted, completed });
-    });
-  });
-  saveActivities();
-
-  performanceTasks.forEach((task, idx) => {
-    if(!task.submissions) task.submissions = [];
-    demoStudents.forEach((u, i) => {
-      const already = task.submissions.find(s => s.studentId === u.id);
-      if(already) return;
-      const completed = (i + idx) % 4 === 0;
-      const submitted = !completed && (i + idx) % 2 === 1;
-      if(!completed && !submitted) return;
-      task.submissions.push({ studentId: u.id, studentName: u.name, submitted, completed });
-    });
-  });
-  savePerformance();
-
-  localStorage.setItem('demoStudentSeeded::demo', '1');
-}
 
 function formatEventDate(dateStr){
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -236,7 +170,7 @@ function renderEvents(){
       const del = document.createElement('button');
       del.className = 'px-2 py-0.5 bg-red-600 text-white rounded text-xs';
       del.textContent = '✕';
-      del.onclick = () => { classroomEvents.splice(idx, 1); saveEvents(); renderEvents(); showToast('Event deleted'); };
+      del.onclick = () => { classroomEvents.splice(idx, 1); renderEvents(); showToast('Event deleted'); };
       actions.appendChild(del);
       card.appendChild(actions);
     }
@@ -913,19 +847,7 @@ function renderAssignments(){
       const desc = document.createElement('div'); desc.className = 'text-sm text-slate-700 mt-2'; desc.textContent = a.description || '';
       const actions = document.createElement('div'); actions.className = 'mt-3 flex gap-2';
       
-      if(!isSubmitted && !isCompleted){
-        const mark = document.createElement('button');
-        mark.className = 'px-3 py-1 bg-green-600 text-white rounded text-sm';
-        mark.textContent = 'Submit';
-        mark.onclick = () => {
-          if(!a.submissions) a.submissions = [];
-          let sub = a.submissions.find(s => s.studentId === studentId);
-          if(!sub) { sub = { studentId, studentName: currentUser ? currentUser.name : 'Student', submitted: false, completed: false }; a.submissions.push(sub); }
-          sub.submitted = true;
-          saveAssignments(); renderAssignments(); showToast('Submitted for approval');
-        };
-        actions.appendChild(mark);
-      }
+
       if(isSubmitted && !isCompleted){
         const status = document.createElement('span');
         status.className = 'px-3 py-1 text-sm text-slate-600';
@@ -948,7 +870,7 @@ function renderAssignments(){
         const del = document.createElement('button');
         del.className = 'px-3 py-1 bg-gray-600 text-white rounded text-sm';
         del.textContent = 'Delete';
-        del.onclick = () => { assignments = assignments.filter(x => x.id !== a.id); saveAssignments(); renderAssignments(); showToast('Deleted'); };
+        del.onclick = () => { assignments = assignments.filter(x => x.id !== a.id);; renderAssignments(); showToast('Deleted'); };
         actions.appendChild(del);
         card.appendChild(title); card.appendChild(meta); card.appendChild(desc); card.appendChild(actions);
         list.appendChild(card);
@@ -965,7 +887,7 @@ function renderAssignments(){
             const del = document.createElement('button');
             del.className = 'px-2 py-0.5 bg-gray-600 text-white rounded text-xs';
             del.textContent = 'Remove';
-            del.onclick = () => { a.submissions = a.submissions.filter(x => x.studentId !== sub.studentId); if(a.submissions.length === 0) a.submissions = []; saveAssignments(); renderAssignments(); showToast('Removed'); };
+            del.onclick = () => { a.submissions = a.submissions.filter(x => x.studentId !== sub.studentId); if(a.submissions.length === 0) a.submissions = []; renderAssignments(); showToast('Removed'); };
             miniCard.appendChild(del);
             list.appendChild(miniCard);
           } else {
@@ -989,19 +911,19 @@ function renderAssignments(){
               const approve = document.createElement('button');
               approve.className = 'px-3 py-1 bg-blue-600 text-white rounded text-sm';
               approve.textContent = 'Approve';
-              approve.onclick = () => { sub.submitted = false; sub.completed = true; saveAssignments(); renderAssignments(); showToast('Approved'); };
+              approve.onclick = () => { sub.submitted = false; sub.completed = true; ; renderAssignments(); showToast('Approved'); };
               actions.appendChild(approve);
               const reject = document.createElement('button');
               reject.className = 'px-3 py-1 bg-red-600 text-white rounded text-sm';
               reject.textContent = 'Reject';
-              reject.onclick = () => { sub.submitted = false; saveAssignments(); renderAssignments(); showToast('Rejected'); };
+              reject.onclick = () => { sub.submitted = false; ; renderAssignments(); showToast('Rejected'); };
               actions.appendChild(reject);
             }
             
             const del = document.createElement('button');
             del.className = 'px-3 py-1 bg-gray-600 text-white rounded text-sm';
             del.textContent = 'Remove';
-            del.onclick = () => { a.submissions = a.submissions.filter(x => x.studentId !== sub.studentId); if(a.submissions.length === 0) a.submissions = []; saveAssignments(); renderAssignments(); showToast('Removed'); };
+            del.onclick = () => { a.submissions = a.submissions.filter(x => x.studentId !== sub.studentId); if(a.submissions.length === 0) a.submissions = [];  renderAssignments(); showToast('Removed'); };
             actions.appendChild(del);
             
             card.appendChild(title); card.appendChild(meta); card.appendChild(desc); card.appendChild(actions);
@@ -1014,7 +936,7 @@ function renderAssignments(){
         const del = document.createElement('button');
         del.className = 'px-3 py-1 bg-gray-600 text-white rounded text-sm';
         del.textContent = 'Delete Assignment';
-        del.onclick = () => { assignments = assignments.filter(x => x.id !== a.id); saveAssignments(); renderAssignments(); showToast('Deleted'); };
+        del.onclick = () => { assignments = assignments.filter(x => x.id !== a.id); renderAssignments(); showToast('Deleted'); };
         card.appendChild(del);
         list.appendChild(card);
       }
@@ -1041,83 +963,18 @@ function handlePostNow(){
     submissions: []
   };
   assignments.unshift(obj);
-  saveAssignments();
+  
   postTitle.value = ''; if(postDesc) postDesc.value = ''; if(postDue) postDue.value = '';
   renderAssignments();
   showToast('Assignment posted');
 }
 
-function init(){
-  // Seed demo accounts if missing
-  try{
-    const users = JSON.parse(localStorage.getItem('users::demo') || '[]');
-    const demoStudentSeeds = [
-      { key: 'student1', name: 'Ariana Lopez', email: 'student1@gmail.com' },
-      { key: 'student2', name: 'Noah Ramirez', email: 'student2@gmail.com' },
-      { key: 'student3', name: 'Mia Santos', email: 'student3@gmail.com' },
-      { key: 'student4', name: 'Ethan Cruz', email: 'student4@gmail.com' },
-      { key: 'student5', name: 'Liam Reyes', email: 'student5@gmail.com' },
-      { key: 'student6', name: 'Sofia Navarro', email: 'student6@gmail.com' },
-      { key: 'student7', name: 'Caleb Villanueva', email: 'student7@gmail.com' }
-    ];
-    const demoNameMap = demoStudentSeeds.reduce((acc, s) => { acc[s.key] = s.name; return acc; }, {});
 
-    const ensureUser = (name, role, email) => {
-      const existing = users.find(u => u.email === email);
-      if(!existing){
-        users.push({ id: `${role}-${name}`, name, email, password: '123', role });
-        return;
-      }
-      existing.role = role;
-      if(!existing.id){ existing.id = `${role}-${name}`; }
-      if(existing.name !== name){ existing.name = name; }
-    };
 
-    demoStudentSeeds.forEach(s => ensureUser(s.name, 'student', s.email));
-    ['teacher1','teacher2','teacher3','teacher4','teacher5'].forEach(n => ensureUser(n, 'teacher', `${n}@gmail.com`));
-    localStorage.setItem('users::demo', JSON.stringify(users));
-
-    const renameIfMatches = (n) => demoNameMap[n] || n;
-    try{
-      const perf = JSON.parse(localStorage.getItem(LS_STUDENTS_PERF_KEY) || '[]');
-      if(Array.isArray(perf)){
-        const updated = perf.map(p => (demoNameMap[p.name] ? { ...p, name: demoNameMap[p.name] } : p));
-        localStorage.setItem(LS_STUDENTS_PERF_KEY, JSON.stringify(updated));
-      }
-    }catch(e){}
-
-    try{
-      const acts = JSON.parse(localStorage.getItem(LS_ACTIVITIES_KEY) || '[]');
-      if(Array.isArray(acts)){
-        acts.forEach(a => {
-          if(Array.isArray(a.submissions)){
-            a.submissions.forEach(s => { if(s.studentName) s.studentName = renameIfMatches(s.studentName); });
-          }
-        });
-        localStorage.setItem(LS_ACTIVITIES_KEY, JSON.stringify(acts));
-      }
-    }catch(e){}
-
-    try{
-      const tasks = JSON.parse(localStorage.getItem(LS_PERFORMANCE_KEY) || '[]');
-      if(Array.isArray(tasks)){
-        tasks.forEach(t => {
-          if(Array.isArray(t.submissions)){
-            t.submissions.forEach(s => { if(s.studentName) s.studentName = renameIfMatches(s.studentName); });
-          }
-        });
-        localStorage.setItem(LS_PERFORMANCE_KEY, JSON.stringify(tasks));
-      }
-    }catch(e){}
-  }catch(e){}
-
-  loadAssignments();
-  loadEvents();
-  loadActivities();
-  loadPerformance();
-  loadStudentPerformances();
-  seedDemoSchedule();
-  seedDemoStudentData();
+ 
+  
+ 
+  
   const roleSelect = document.getElementById('roleSelect');
   const teacherPanel = document.getElementById('teacherPanel');
   const postBtn = document.getElementById('postBtn');
@@ -1146,7 +1003,8 @@ function init(){
       const date = eventDate.value;
       if(!title || !date){ showToast('Please fill in event name and date'); return; }
       classroomEvents.push({ id: Date.now().toString(), title, date });
-      saveEvents();
+      
+    
       eventTitle.value = '';
       eventDate.value = '';
       renderEvents();
@@ -1158,7 +1016,7 @@ function init(){
       const role = currentUser ? currentUser.role : (roleSelect ? roleSelect.value : 'student');
       if(role !== 'teacher'){ showToast('Teacher access only'); return; }
       classroomEvents = [];
-      saveEvents();
+      
       localStorage.setItem('demoScheduleDisabled::demo', '1');
       renderEvents();
       showToast('Events cleared');
