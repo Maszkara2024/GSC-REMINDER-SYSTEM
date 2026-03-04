@@ -1,32 +1,32 @@
-/**
- * Import function triggers from their respective submodules:
- *
- * const {onCall} = require("firebase-functions/v2/https");
- * const {onDocumentWritten} = require("firebase-functions/v2/firestore");
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
- */
+const { onRequest } = require("firebase-functions/v2/https");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-const {setGlobalOptions} = require("firebase-functions");
-const {onRequest} = require("firebase-functions/https");
-const logger = require("firebase-functions/logger");
+// This is the Cloud Function "Brain"
+exports.askGemini = onRequest({ cors: true }, async (req, res) => {
+  // 1. Get the prompt and data from your Dashboard
+  const { prompt, context } = req.body;
 
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
-setGlobalOptions({ maxInstances: 10 });
+  try {
+    // 2. Initialize Gemini (The key is stored safely in Firebase settings)
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-// Create and deploy your first functions
-// https://firebase.google.com/docs/functions/get-started
+    // 3. Create the instructions for Gemini
+    const systemInstruction = `
+      You are an AI Assistant for a school research project. 
+      Data: ${JSON.stringify(context)}.
+      A score below 75% is struggling. Be concise.
+    `;
 
-// exports.helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+    // 4. Ask Gemini and get the text response
+    const result = await model.generateContent([systemInstruction, prompt]);
+    const response = await result.response;
+    
+    // 5. Send the answer back to your Dashboard
+    res.json({ reply: response.text() });
+
+  } catch (error) {
+    console.error("Cloud Function Error:", error);
+    res.status(500).json({ reply: "I'm having trouble connecting to Gemini." });
+  }
+});

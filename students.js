@@ -1,119 +1,120 @@
-const LS_STUDENTS_KEY = 'studentsPerformance::demo';
-let students = [];
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, deleteDoc, doc, setDoc, getDocs, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+// 1. CONFIG
+const firebaseConfig = {
+    apiKey: "AIzaSyBQNGAQGWwKrWHsDfN7mZwb4LA9jP8V8xI",
+    authDomain: "gsc-reminder-system.firebaseapp.com",
+    projectId: "gsc-reminder-system",
+    storageBucket: "gsc-reminder-system.firebasestorage.app",
+    messagingSenderId: "779246880500",
+    appId: "1:779246880500:web:7da307e1ee407ad36a80a1"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 const currentUser = JSON.parse(localStorage.getItem('currentUser::demo') || 'null');
 
-function showToast(msg){
-  const container = document.getElementById('toastContainer');
-  if(!container) return;
-  const el = document.createElement('div');
-  el.className = 'max-w-xs px-4 py-3 rounded shadow-lg text-sm bg-white border';
-  el.textContent = msg;
-  container.appendChild(el);
-  setTimeout(()=> el.remove(), 3000);
+// 2. UI HELPERS
+function showToast(msg) {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    const el = document.createElement('div');
+    el.className = 'max-w-xs px-4 py-3 rounded shadow-lg text-sm bg-white border border-indigo-100 mb-2';
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
 }
 
-function saveStudents(){
-  try{ localStorage.setItem(LS_STUDENTS_KEY, JSON.stringify(students)); }catch(e){ console.error(e); }
-}
+// 3. RENDER & LIVE SYNC
+function initSync() {
+    const list = document.getElementById('studentList');
+    const q = query(collection(db, "student_performance"), orderBy("name", "asc"));
 
-function loadStudents(){
-  try{ students = JSON.parse(localStorage.getItem(LS_STUDENTS_KEY) || '[]'); }catch(e){ students = []; }
-}
+    onSnapshot(q, (snapshot) => {
+        list.innerHTML = '';
+        if (snapshot.empty) {
+            list.innerHTML = '<div class="text-slate-600 text-sm">No students added to cloud yet.</div>';
+            return;
+        }
 
-function renderStudents(){
-  const list = document.getElementById('studentList');
-  if(!list) return;
-  list.innerHTML = '';
-  if(students.length === 0){
-    const empty = document.createElement('div');
-    empty.className = 'text-slate-600 text-sm';
-    empty.textContent = 'No students added yet.';
-    list.appendChild(empty);
-    return;
-  }
+        snapshot.forEach((studentDoc) => {
+            const s = studentDoc.data();
+            const id = studentDoc.id;
+            
+            const card = document.createElement('div');
+            card.className = 'p-3 border rounded bg-white text-sm flex items-center justify-between gap-3 shadow-sm';
+            
+            const categoryLabel = s.category === 'performance' ? 'Performance Task' : 'Activity';
+            const statusColor = (s.score / s.over) >= 0.75 ? 'text-green-600' : 'text-red-500';
 
-  students.forEach((s, idx) => {
-    const card = document.createElement('div');
-    card.className = 'p-3 border rounded bg-white text-sm flex items-center justify-between gap-3';
-    const info = document.createElement('div');
-    const legacyActivity = Number(s.activity || 0);
-    const legacyPerformance = Number(s.performance || 0);
-    const category = s.category || (legacyActivity || legacyPerformance ? (legacyPerformance ? 'performance' : 'activity') : 'activity');
-    const value = Number(s.value ?? (legacyActivity || legacyPerformance || 0));
-    const score = Number(s.score ?? value);
-    const over = Number(s.over ?? 100);
-    const categoryLabel = category === 'performance' ? 'Performance Task' : 'Activity';
-    info.innerHTML = `<div class="font-medium text-slate-900">${s.name}</div>
-      <div class="text-xs text-slate-600">${categoryLabel}: ${score}/${over}</div>`;
-    const actions = document.createElement('div');
-    const del = document.createElement('button');
-    del.className = 'px-3 py-1 bg-red-600 text-white rounded text-xs';
-    del.textContent = 'Delete';
-    del.onclick = () => { students.splice(idx, 1); saveStudents(); renderStudents(); showToast('Student removed'); };
-    actions.appendChild(del);
-    card.appendChild(info);
-    card.appendChild(actions);
-    list.appendChild(card);
-  });
-}
-
-function init(){
-  const display = document.getElementById('currentUserDisplay');
-  const logoutBtn = document.getElementById('logoutBtn');
-  if(display && currentUser){ display.textContent = `${currentUser.name} (${currentUser.role})`; }
-  if(logoutBtn){ logoutBtn.addEventListener('click', ()=>{ localStorage.removeItem('currentUser::demo'); location.href = 'login.html'; }); }
-
-  const teacherOnly = document.getElementById('teacherOnly');
-  const noAccess = document.getElementById('noAccess');
-  if(!currentUser || currentUser.role !== 'teacher'){
-    if(teacherOnly) teacherOnly.classList.add('hidden');
-    if(noAccess) noAccess.classList.remove('hidden');
-  }
-
-  loadStudents();
-  renderStudents();
-
-  const addBtn = document.getElementById('addStudentBtn');
-  const nameInput = document.getElementById('studentName');
-  const categorySelect = document.getElementById('categorySelect');
-  const scoreValue = document.getElementById('scoreValue');
-  const overValue = document.getElementById('overValue');
-
-  if(addBtn){
-    addBtn.addEventListener('click', ()=>{
-      if(!currentUser || currentUser.role !== 'teacher'){ showToast('Teacher access only'); return; }
-      const name = (nameInput.value || '').trim();
-      const category = categorySelect ? categorySelect.value : 'activity';
-      const score = Number(scoreValue.value);
-      const over = Number(overValue.value);
-      if(!name){ showToast('Please enter student name'); return; }
-      if(Number.isNaN(score) || score < 0 || Number.isNaN(over) || over <= 0){
-        showToast('Score must be 0 or greater and Over must be greater than 0');
-        return;
-      }
-      if(score > over){
-        showToast('Score cannot be greater than Over');
-        return;
-      }
-
-      const existing = students.find(s => s.name.toLowerCase() === name.toLowerCase());
-      if(existing){
-        existing.category = category;
-        existing.score = Math.round(score);
-        existing.over = Math.round(over);
-        showToast('Student updated');
-      } else {
-        students.push({ id: Date.now().toString(), name, category, score: Math.round(score), over: Math.round(over) });
-        showToast('Student added');
-      }
-      saveStudents();
-      renderStudents();
-      nameInput.value = '';
-      if(categorySelect) categorySelect.value = 'activity';
-      scoreValue.value = '';
-      overValue.value = '';
+            card.innerHTML = `
+                <div>
+                    <div class="font-medium text-slate-900">${s.name}</div>
+                    <div class="text-xs text-slate-600">${categoryLabel}: <span class="font-bold">${s.score}/${s.over}</span></div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold uppercase ${statusColor}">${(s.score / s.over >= 0.75) ? 'PASSED' : 'NOT PASSED'}</span>
+                    <button class="del-btn px-3 py-1 bg-red-100 text-red-600 rounded text-xs hover:bg-red-600 hover:text-white transition" data-id="${id}">Delete</button>
+                </div>
+            `;
+            
+            card.querySelector('.del-btn').onclick = async () => {
+                await deleteDoc(doc(db, "student_performance", id));
+                showToast('Student removed from cloud');
+            };
+            
+            list.appendChild(card);
+        });
     });
-  }
 }
 
-if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+// 4. MAIN INIT
+function init() {
+    // Auth Check
+    if (!currentUser) { location.href = 'login.html'; return; }
+    document.getElementById('currentUserDisplay').textContent = `${currentUser.name} (${currentUser.role})`;
+    
+    if (currentUser.role !== 'teacher') {
+        document.getElementById('teacherOnly')?.classList.add('hidden');
+        document.getElementById('noAccess')?.classList.remove('hidden');
+    }
+
+    initSync();
+
+    const addBtn = document.getElementById('addStudentBtn');
+    if (addBtn) {
+        addBtn.addEventListener('click', async () => {
+            const name = document.getElementById('studentName').value.trim();
+            const category = document.getElementById('categorySelect').value;
+            const score = Number(document.getElementById('scoreValue').value);
+            const over = Number(document.getElementById('overValue').value);
+
+            if (!name || isNaN(score) || isNaN(over) || over <= 0) {
+                showToast('Please enter valid details');
+                return;
+            }
+
+            try {
+                // Save to Firestore
+                await addDoc(collection(db, "student_performance"), {
+                    name,
+                    category,
+                    score: Math.round(score),
+                    over: Math.round(over),
+                    status: (score / over) >= 0.75 ? 'approved' : 'pending' // Mapping for AI logic
+                });
+
+                showToast('Cloud database updated');
+                document.getElementById('studentName').value = '';
+                document.getElementById('scoreValue').value = '';
+                document.getElementById('overValue').value = '';
+            } catch (e) {
+                console.error(e);
+                showToast('Error saving to cloud');
+            }
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', init);
