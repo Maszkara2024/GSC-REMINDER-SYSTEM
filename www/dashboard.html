@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard — Research Project</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <script>window.tailwind = {config:{theme:{extend:{fontFamily:{sans:['Inter','ui-sans-serif','system-ui']}}}}}</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="theme.css">
+  <style>
+    .scrollbar-thin::-webkit-scrollbar { width: 5px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+    #emojiPicker button { transition: transform 0.1s; }
+    #emojiPicker button:hover { transform: scale(1.2); }
+  </style>
+
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script type="text/javascript">
+    (function() {
+      emailjs.init({ publicKey: "EMFsMk00WldFjssGx" });
+    })();
+  </script>
+</head>
+
+<body class="text-slate-800 font-sans bg-slate-50">
+  
+  <header class="bg-white shadow-sm border-b border-slate-200">
+    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="font-semibold text-indigo-600 flex items-center gap-2">
+          <span class="w-3 h-3 bg-indigo-600 rounded-full"></span>
+          Research Project
+      </div>
+      <div class="flex items-center gap-3">
+        <a id="studentsLink" href="students.html" class="hidden px-3 py-1 bg-amber-400 text-white rounded text-sm font-medium hover:bg-amber-500 transition">Students</a>
+        <a id="studentProfileLink" href="student-profile.html" class="hidden px-3 py-1 bg-indigo-600 text-white rounded text-sm font-medium hover:bg-indigo-700 transition">Profile</a>
+        <div id="currentUserDisplay" class="text-sm text-slate-700 font-medium"></div>
+        <button id="logoutBtn" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded text-sm transition">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-6 py-8">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      
+      <section class="md:col-span-2 bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold text-slate-900">School Events</h2>
+          <span id="eventTeacherOnly" class="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-bold uppercase hidden">Admin</span>
+        </div>
+        <div id="teacherEventPanel" class="mt-4 hidden p-4 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input id="eventTitle" placeholder="Event name" class="col-span-2 rounded border-slate-200 p-2 text-sm outline-none" />
+            <input id="eventDate" type="date" class="rounded border-slate-200 p-2 text-sm outline-none" />
+          </div>
+          <div class="mt-3 flex justify-end">
+            <button id="eventAddBtn" class="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold hover:bg-amber-600">Add Global Event</button>
+          </div>
+        </div>
+        <div id="eventsList" class="mt-5 space-y-2 max-h-60 overflow-y-auto pr-2"></div>
+      </section>
+
+      <section id="assistantPanel" class="md:col-span-1 bg-white rounded-xl p-6 shadow-sm border border-slate-200 flex flex-col h-[500px]">
+        <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+            <span class="text-indigo-600">🤖</span> Assistant
+        </h2>
+        <div class="flex flex-col gap-2 mb-4">
+          <button id="reportMissingBtn" class="w-full p-2 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg text-[11px] font-bold text-left flex justify-between hover:bg-indigo-100 transition">
+            Who hasn't submitted? <span>→</span>
+          </button>
+          <button id="reportPendingBtn" class="w-full p-2 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg text-[11px] font-bold text-left flex justify-between hover:bg-amber-100 transition">
+            Needs Approval <span>→</span>
+          </button>
+          <button id="reportDeadlinesBtn" class="w-full p-2 bg-rose-50 text-rose-700 border border-rose-100 rounded-lg text-[11px] font-bold text-left flex justify-between hover:bg-rose-100 transition">
+            Tasks Due Soon <span>→</span>
+          </button>
+        </div>
+        <div id="assistantMessages" class="flex-1 space-y-3 text-sm overflow-y-auto mb-4 pr-1 scrollbar-thin">
+            <div class="bg-slate-100 p-2 rounded-lg text-slate-600 italic text-xs">Assistant is active. Click a report to start.</div>
+        </div>
+      </section>
+
+      <section class="md:col-span-3 bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <h2 class="text-xl font-bold text-slate-900">Classroom Tasks</h2>
+          <div id="studentTeacherSelector" class="flex items-center gap-2 bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-100">
+            <label class="text-[10px] font-black text-indigo-600 uppercase tracking-wider">Teacher:</label>
+            <select id="viewTeacherSelect" class="rounded border-none text-xs font-bold p-1 bg-transparent outline-none text-slate-700 cursor-pointer min-w-[140px]">
+              <option value="">Loading...</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="p-4 rounded-xl border border-blue-100 bg-blue-50/50">
+            <h3 class="font-bold text-blue-900 text-sm mb-4">Activities</h3>
+            <div id="activityTeacherPanel" class="mt-3 hidden mb-4 space-y-2">
+              <input id="activityTitle" placeholder="Activity name" class="w-full rounded-lg border-slate-200 p-2 text-sm outline-none" />
+              <input id="activityDate" type="date" class="w-full rounded-lg border-slate-200 p-2 text-sm outline-none" />
+              <button id="activityAddBtn" class="w-full py-2 bg-blue-600 text-white rounded-lg text-sm font-bold">Add Activity</button>
+            </div>
+            <div id="activityList" class="space-y-3"></div>
+          </div>
+
+          <div class="p-4 rounded-xl border border-purple-100 bg-purple-50/50">
+            <h3 class="font-bold text-purple-900 text-sm mb-4">Performance</h3>
+            <div id="performanceTeacherPanel" class="mt-3 hidden mb-4 space-y-2">
+              <input id="performanceTitle" placeholder="Task name" class="w-full rounded-lg border-slate-200 p-2 text-sm outline-none" />
+              <input id="performanceDate" type="date" class="w-full rounded-lg border-slate-200 p-2 text-sm outline-none" />
+              <button id="performanceAddBtn" class="w-full py-2 bg-purple-600 text-white rounded-lg text-sm font-bold">Add Task</button>
+            </div>
+            <div id="performanceList" class="space-y-3"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="md:col-span-3 bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-indigo-600">💬</span> Community Chat
+          </h2>
+          <div class="flex items-center gap-3">
+            <button id="clearChatBtn" class="hidden text-[10px] font-black bg-rose-100 text-rose-600 px-3 py-1 rounded-full uppercase hover:bg-rose-600 hover:text-white transition">Clear Chat</button>
+            <div id="activeRoomIndicator" class="text-[10px] font-black bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full uppercase">Room: Global Chat</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 h-[500px]">
+          <div class="border-r border-slate-100 pr-4 flex flex-col">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Channels</p>
+            <div id="roomList" class="space-y-1 flex-1 overflow-y-auto scrollbar-thin"></div>
+            <div class="pt-4 mt-4 border-t">
+               <input id="newRoomInput" placeholder="Room name..." class="w-full text-[10px] p-2 border rounded outline-none mb-2" />
+               <button id="createRoomBtn" class="w-full py-1.5 bg-slate-800 text-white rounded text-[10px] font-bold">Create Room</button>
+            </div>
+          </div>
+
+          <div class="md:col-span-3 flex flex-col bg-slate-50 rounded-xl border border-slate-100 overflow-hidden relative">
+            <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin"></div>
+            
+            <div id="emojiPicker" class="hidden absolute bottom-16 left-4 bg-white shadow-xl border border-slate-200 rounded-lg p-3 grid grid-cols-6 gap-2 z-50">
+              <button onclick="addEmoji('😀')">😀</button><button onclick="addEmoji('😂')">😂</button>
+              <button onclick="addEmoji('👍')">👍</button><button onclick="addEmoji('🔥')">🔥</button>
+              <button onclick="addEmoji('🚀')">🚀</button><button onclick="addEmoji('📚')">📚</button>
+              <button onclick="addEmoji('✅')">✅</button><button onclick="addEmoji('📍')">📍</button>
+              <button onclick="addEmoji('👋')">👋</button><button onclick="addEmoji('🤔')">🤔</button>
+              <button onclick="addEmoji('🎉')">🎉</button><button onclick="addEmoji('💡')">💡</button>
+            </div>
+
+            <div class="p-3 bg-white border-t border-slate-200 flex gap-2 items-center">
+              <button id="emojiBtn" class="text-xl hover:scale-110 transition grayscale hover:grayscale-0">😊</button>
+              <input id="chatInput" placeholder="Type a message..." class="flex-1 text-sm outline-none px-2" />
+              <button id="sendChatBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="studentDirectorySection" class="md:col-span-3 bg-white rounded-xl p-6 shadow-sm border border-slate-200 mt-6 hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">
+            <span class="text-indigo-600">👥</span> Student Directory
+          </h2>
+          <div class="text-[10px] font-black bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full uppercase">
+            Total Students: <span id="studentCount">0</span>
+          </div>
+        </div>
+        <div id="studentDirectoryList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"></div>
+      </section>
+
+    </div>
+  </main>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, where, updateDoc, doc, arrayUnion, arrayRemove, deleteDoc, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBQNGAQGWwKrWHsDfN7mZwb4LA9jP8V8xI",
+    authDomain: "gsc-reminder-system.firebaseapp.com",
+    projectId: "gsc-reminder-system",
+    storageBucket: "gsc-reminder-system.firebasestorage.app",
+    messagingSenderId: "779246880500",
+    appId: "1:779246880500:web:7da307e1ee407ad36a80a1"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const curUser = JSON.parse(localStorage.getItem('currentUser::demo'));
+  if (!curUser) { window.location.href = 'login.html'; }
+
+  let firebaseState = { events: [], activities: [], performance: [], students: [], currentRooms: [] };
+  let currentChatRoom = 'global';
+  let chatUnsubscribe = null;
+
+  // --- WINDOW ATTACHED FUNCTIONS (To fix ReferenceErrors) ---
+  
+  window.removeItem = async (col, id) => {
+    if(!confirm("Are you sure you want to delete this?")) return;
+    await deleteDoc(doc(db, col, id));
+  };
+
+  window.addData = async (col, tId, dId) => {
+    const title = document.getElementById(tId).value; 
+    const date = document.getElementById(dId).value;
+    if (!title || !date) { alert("Fill in title and date."); return; }
+    const entry = { title, date, createdAt: serverTimestamp(), completedBy: [], approvedStudents: [] };
+    if (col !== "events") { entry.teacherName = curUser.name; }
+    try {
+      await addDoc(collection(db, col), entry);
+      document.getElementById(tId).value = ""; 
+      document.getElementById(dId).value = "";
+    } catch (e) { console.error(e); }
+  };
+
+  window.toggleStudentTask = async (id, col, done) => {
+    await updateDoc(doc(db, col, id), { completedBy: done ? arrayRemove(curUser.name) : arrayUnion(curUser.name) });
+  };
+
+  window.approveIndividualStudent = async (id, col, name) => {
+    await updateDoc(doc(db, col, id), { approvedStudents: arrayUnion(name) });
+  };
+
+  window.sendEmailReminder = (email, name) => {
+    if (!email) { alert("This student does not have an email address."); return; }
+    const templateParams = { to_email: email, student_name: name, message: "Reminder: You have pending tasks." };
+    emailjs.send("service_z75vrbe", "template_wlrec7p", templateParams)
+      .then(() => alert("Reminder sent to " + name + "!"), (err) => alert("Failed: " + JSON.stringify(err)));
+  };
+
+  // --- ASSISTANT LOGIC ---
+
+  const addAssistantMessage = (text, type = 'info') => {
+    const container = document.getElementById('assistantMessages');
+    const msg = document.createElement('div');
+    const colors = { info: 'bg-indigo-600', warning: 'bg-amber-500', danger: 'bg-rose-500' };
+    msg.className = `${colors[type]} text-white p-3 rounded-xl text-xs mb-2 shadow-sm`;
+    msg.textContent = text;
+    if (container.children.length > 5) container.removeChild(container.firstChild);
+    container.appendChild(msg);
+    container.scrollTop = container.scrollHeight;
+  };
+
+  const runMissingReport = () => {
+    const allStudents = firebaseState.students.filter(u => u.role === 'student');
+    const lastTask = firebaseState.activities[0] || firebaseState.performance[0];
+    if (!lastTask) return addAssistantMessage("No tasks found to analyze.");
+    const missing = allStudents.filter(s => !lastTask.completedBy?.includes(s.name));
+    if (missing.length === 0) addAssistantMessage(`Everyone submitted "${lastTask.title}"! 🎉`);
+    else addAssistantMessage(`Missing for "${lastTask.title}": ${missing.map(m => m.name).join(", ")}`, 'danger');
+  };
+
+  const runApprovalReport = () => {
+    const allTasks = [...firebaseState.activities, ...firebaseState.performance];
+    let pendingCount = 0;
+    allTasks.forEach(t => {
+      pendingCount += ((t.completedBy?.length || 0) - (t.approvedStudents?.length || 0));
+    });
+    if (pendingCount > 0) addAssistantMessage(`You have ${pendingCount} submissions waiting for approval.`, 'warning');
+    else addAssistantMessage("All submissions are approved. Great job!");
+  };
+
+  const runDeadlineReport = () => {
+    const today = new Date();
+    const threeDays = new Date(); threeDays.setDate(today.getDate() + 3);
+    const upcoming = [...firebaseState.activities, ...firebaseState.performance].filter(t => {
+      const d = new Date(t.date); return d >= today && d <= threeDays;
+    });
+    if (upcoming.length > 0) addAssistantMessage(`Warning: ${upcoming.length} tasks are due within 3 days!`, 'danger');
+    else addAssistantMessage("No urgent deadlines upcoming.");
+  };
+
+  // --- CHAT LOGIC ---
+
+  window.switchRoom = (roomId, roomName) => {
+    currentChatRoom = roomId;
+    document.getElementById('activeRoomIndicator').textContent = `Room: ${roomName}`;
+    renderRoomsList(); 
+    startChatListener(roomId);
+  };
+
+  const startChatListener = (roomId) => {
+    if (chatUnsubscribe) chatUnsubscribe();
+    const q = query(collection(db, "chats", roomId, "messages"), orderBy("timestamp", "asc"));
+    chatUnsubscribe = onSnapshot(q, (snapshot) => {
+      const box = document.getElementById('chatMessages');
+      box.innerHTML = "";
+      snapshot.forEach(doc => {
+        const m = doc.data();
+        const isMe = m.sender === curUser.name;
+        box.innerHTML += `
+          <div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
+            <div class="max-w-[80%]">
+              <div class="flex items-center gap-2 mb-1 ${isMe ? 'flex-row-reverse' : ''}">
+                <span class="text-[9px] font-black text-slate-400 uppercase">${m.sender}</span>
+              </div>
+              <div class="p-3 rounded-2xl text-xs shadow-sm ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-slate-700 border border-slate-200 rounded-tl-none'}">
+                ${m.text}
+              </div>
+            </div>
+          </div>`;
+      });
+      box.scrollTop = box.scrollHeight;
+    });
+  };
+
+  const sendChatMessage = async () => {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+    await addDoc(collection(db, "chats", currentChatRoom, "messages"), {
+      text, sender: curUser.name, role: curUser.role, timestamp: serverTimestamp()
+    });
+    input.value = "";
+  };
+
+  window.addEmoji = (emoji) => {
+    const input = document.getElementById('chatInput');
+    input.value += emoji; input.focus();
+    document.getElementById('emojiPicker').classList.add('hidden');
+  };
+
+  const renderRoomsList = () => {
+    const list = document.getElementById('roomList');
+    const isTeacher = curUser.role === 'teacher';
+    list.innerHTML = `<button onclick="switchRoom('global', 'Global Chat')" class="w-full text-left p-2 rounded-lg text-xs font-bold ${currentChatRoom==='global'?'bg-indigo-600 text-white shadow-sm':'text-slate-600 hover:bg-slate-100'}"># global-chat</button>`;
+    firebaseState.currentRooms.forEach(r => {
+      const isActive = currentChatRoom === r.id;
+      list.innerHTML += `
+        <div class="group flex items-center justify-between w-full rounded-lg ${isActive?'bg-indigo-600 text-white shadow-sm':'hover:bg-slate-100 text-slate-600'}">
+          <button onclick="switchRoom('${r.id}', '${r.name}')" class="flex-1 text-left p-2 text-xs font-bold truncate"># ${r.name.toLowerCase().replace(/\s+/g, '-')}</button>
+          ${isTeacher ? `<button onclick="deleteRoom('${r.id}', event)" class="opacity-0 group-hover:opacity-100 px-2 text-rose-400 hover:text-rose-600 font-bold transition">×</button>` : ''}
+        </div>`;
+    });
+  };
+
+  const listenToRooms = () => {
+    onSnapshot(query(collection(db, "chatRooms"), orderBy("createdAt", "desc")), (snap) => {
+      firebaseState.currentRooms = [];
+      snap.forEach(d => firebaseState.currentRooms.push({ id: d.id, ...d.data() }));
+      renderRoomsList();
+    });
+  };
+
+  // --- DATA SYNC ---
+
+  const setupFilteredListener = (colName, listId) => {
+    const selector = document.getElementById('viewTeacherSelect');
+    let unsub;
+    const runQuery = () => {
+      if (unsub) unsub();
+      const selT = selector.value;
+      let q = (colName === "events") ? query(collection(db, colName), orderBy("date", "asc")) : (selT ? query(collection(db, colName), where("teacherName", "==", selT), orderBy("date", "asc")) : null);
+      if (!q) return;
+      unsub = onSnapshot(q, (snap) => {
+        const list = document.getElementById(listId);
+        list.innerHTML = ""; const items = [];
+        snap.forEach(fbDoc => {
+          const item = fbDoc.data(); const id = fbDoc.id; items.push({id, ...item});
+          const iDone = item.completedBy?.includes(curUser.name);
+          const iApproved = item.approvedStudents?.includes(curUser.name);
+          const isTeacher = curUser.role === 'teacher';
+
+          let html = `
+          <div class="relative p-3 bg-white rounded-lg border border-slate-200 shadow-sm mb-2 group">
+            ${isTeacher ? `<button onclick="removeItem('${colName}', '${id}')" class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-700 font-bold transition">×</button>` : ''}
+            <div class="text-xs font-bold">${item.title}</div>
+            <div class="text-[10px] text-indigo-600">${item.date}</div>`;
+          
+          if (!isTeacher) {
+            html += `<div class="mt-2">${iApproved ? '<div class="text-center text-[10px] text-green-600 font-bold">✓ APPROVED</div>' : `<button onclick="toggleStudentTask('${id}','${colName}',${iDone})" class="w-full py-1 rounded text-[10px] font-bold ${iDone?'bg-amber-100':'bg-indigo-600 text-white'}">${iDone?'Undo':'Mark Done'}</button>`}</div>`;
+          } else {
+            html += `<div class="mt-2 border-t pt-2 space-y-1">`;
+            (item.completedBy || []).forEach(s => {
+              const isApp = item.approvedStudents?.includes(s);
+              html += `<div class="flex justify-between items-center bg-slate-50 p-1 rounded text-[10px]">
+                        <span>${s}</span>
+                        <div class="flex gap-1">
+                          ${isApp ? '<span class="text-green-600 font-bold px-1">✓ OK</span>' : `<button onclick="approveIndividualStudent('${id}','${colName}','${s}')" class="bg-indigo-500 text-white px-2 py-0.5 rounded hover:bg-indigo-600 transition">Approve</button>`}
+                        </div>
+                      </div>`;
+            });
+            html += `</div>`;
+          }
+          list.innerHTML += html + `</div>`;
+        });
+        firebaseState[colName] = items;
+      });
+    };
+    selector.addEventListener('change', runQuery); runQuery();
+  };
+
+  // --- INITIALIZE ---
+  document.addEventListener('DOMContentLoaded', () => {
+    onSnapshot(collection(db, "users"), (snap) => {
+      const users = []; snap.forEach(d => users.push(d.data())); firebaseState.students = users;
+      const studentListDiv = document.getElementById('studentDirectoryList');
+      const countSpan = document.getElementById('studentCount');
+      const studentsOnly = users.filter(u => u.role === 'student');
+      
+      if (curUser.role === 'teacher') {
+        document.getElementById('studentDirectorySection')?.classList.remove('hidden');
+        studentListDiv.innerHTML = "";
+        countSpan.textContent = studentsOnly.length;
+        studentsOnly.forEach(s => {
+          studentListDiv.innerHTML += `
+            <div class="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <div class="truncate mr-2">
+                <div class="text-xs font-bold text-slate-800">${s.name}</div>
+                <div class="text-[9px] text-slate-500 truncate">${s.email || 'No email set'}</div>
+              </div>
+              <button onclick="sendEmailReminder('${s.email}', '${s.name}')" class="shrink-0 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold rounded transition">Remind</button>
+            </div>`;
+        });
+      }
+
+      const sel = document.getElementById('viewTeacherSelect');
+      const t = users.filter(u => u.role === 'teacher');
+      sel.innerHTML = '<option value="">Select Teacher...</option>';
+      t.forEach(u => sel.innerHTML += `<option value="${u.name}">${u.name}</option>`);
+      if (curUser.role === 'teacher') sel.value = curUser.name;
+    });
+
+    if (curUser.role === 'teacher') {
+        document.querySelectorAll('#teacherEventPanel, #activityTeacherPanel, #performanceTeacherPanel, [id$="TeacherOnly"], #studentsLink, #clearChatBtn').forEach(el => el?.classList.remove('hidden'));
+    }
+    document.getElementById('currentUserDisplay').textContent = `${curUser.name} (${curUser.role})`;
+
+    setupFilteredListener("events", "eventsList");
+    setupFilteredListener("activities", "activityList");
+    setupFilteredListener("performance", "performanceList");
+
+    document.getElementById('sendChatBtn').onclick = sendChatMessage;
+    document.getElementById('reportMissingBtn').onclick = runMissingReport;
+    document.getElementById('reportPendingBtn').onclick = runApprovalReport;
+    document.getElementById('reportDeadlinesBtn').onclick = runDeadlineReport;
+    document.getElementById('eventAddBtn').onclick = () => window.addData("events", "eventTitle", "eventDate");
+    document.getElementById('activityAddBtn').onclick = () => window.addData("activities", "activityTitle", "activityDate");
+    document.getElementById('performanceAddBtn').onclick = () => window.addData("performance", "performanceTitle", "performanceDate");
+    document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('currentUser::demo'); window.location.href = 'login.html'; };
+    document.getElementById('emojiBtn').onclick = (e) => { e.stopPropagation(); document.getElementById('emojiPicker').classList.toggle('hidden'); };
+
+    listenToRooms();
+    startChatListener('global');
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Register — Research Project</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body class="bg-slate-50 font-sans text-slate-800">
+    <main class="min-h-screen flex items-center justify-center px-4">
+        <div class="w-full max-w-md p-8 bg-white rounded-2xl shadow-xl border border-slate-200">
+            <div class="text-center mb-6">
+                <h2 class="text-2xl font-bold text-indigo-600">Create Account</h2>
+                <p class="text-sm text-slate-500 mt-1">Research Project Registration</p>
+            </div>
+
+            <form id="registerForm" class="space-y-4">
+                <div>
+                    <label class="text-xs font-bold text-slate-500 uppercase">Full Name</label>
+                    <input id="name" type="text" placeholder="Juan Dela Cruz" class="mt-1 block w-full rounded-lg border-slate-200 p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none border" required />
+                </div>
+                
+                <div>
+                    <label class="text-xs font-bold text-slate-500 uppercase">Email Address</label>
+                    <input id="email" type="email" placeholder="email@example.com" class="mt-1 block w-full rounded-lg border-slate-200 p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none border" required />
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 uppercase">Password</label>
+                        <input id="password" type="password" minlength="6" class="mt-1 block w-full rounded-lg border-slate-200 p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none border" required />
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-500 uppercase">Confirm</label>
+                        <input id="confirm" type="password" class="mt-1 block w-full rounded-lg border-slate-200 p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none border" required />
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="text-xs font-bold text-slate-500 uppercase">Account Role</label>
+                    <select id="role" class="mt-1 block w-full rounded-lg border-slate-200 p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none border bg-white cursor-pointer">
+                        <option value="student">Student</option>
+                        <option value="teacher">Teacher</option>
+                    </select>
+                </div>
+
+                <div id="teacherKeyWrapper" class="hidden">
+                    <label class="text-xs font-bold text-amber-600 uppercase">Teacher Verification Code</label>
+                    <input id="teacherKey" type="password" placeholder="Enter given code" class="mt-1 block w-full rounded-lg border-amber-200 p-2.5 text-sm focus:ring-2 focus:ring-amber-500 outline-none border bg-amber-50" />
+                </div>
+
+                <div class="pt-2">
+                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                        <input id="agree" type="checkbox" class="rounded text-indigo-600 border-slate-300" required /> 
+                        <span class="text-slate-500 text-[11px]">I agree to the Terms and Data Use Policy.</span>
+                    </label>
+                </div>
+
+                <div class="pt-4">
+                    <button id="submitBtn" type="submit" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-indigo-700 active:scale-[0.98] transition-all w-full shadow-lg">
+                        Register Account
+                    </button>
+                    <div class="text-center mt-4">
+                        <a href="login.html" class="text-xs text-slate-400 hover:text-indigo-600 transition">Log in instead</a>
+                    </div>
+                </div>
+            </form>
+
+            <div id="msg" class="mt-4 text-center text-xs font-bold min-h-[16px]"></div>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBQNGAQGWwKrWHsDfN7mZwb4LA9jP8V8xI",
+            authDomain: "gsc-reminder-system.firebaseapp.com",
+            projectId: "gsc-reminder-system",
+            storageBucket: "gsc-reminder-system.firebasestorage.app",
+            messagingSenderId: "779246880500",
+            appId: "1:779246880500:web:7da307e1ee407ad36a80a1"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Obfuscated Code: This is "ILOVEGSC" encoded in Base64
+        // To a student looking at the code, it just looks like a random string.
+        const _v = "SUxPVkVHU0M="; 
+
+        const showMsg = (text, isOk = false) => {
+            const el = document.getElementById('msg');
+            el.textContent = text;
+            el.className = isOk ? 'mt-4 text-center text-xs font-bold text-green-600' : 'mt-4 text-center text-xs font-bold text-rose-600';
+        };
+
+        document.getElementById('role').addEventListener('change', (e) => {
+            const wrapper = document.getElementById('teacherKeyWrapper');
+            wrapper.style.display = (e.target.value === 'teacher') ? 'block' : 'none';
+        });
+
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const confirm = document.getElementById('confirm').value;
+            const role = document.getElementById('role').value;
+            const inputKey = document.getElementById('teacherKey').value;
+
+            if (password !== confirm) return showMsg('Passwords do not match');
+
+            // Verification Check using the obfuscated key
+            if (role === 'teacher' && btoa(inputKey) !== _v) {
+                return showMsg('Invalid Teacher Code. Contact Admin.');
+            }
+
+            btn.disabled = true;
+            btn.textContent = "Processing...";
+
+            try {
+                const cred = await createUserWithEmailAndPassword(auth, email, password);
+                await setDoc(doc(db, "users", cred.user.uid), {
+                    name, email, role, uid: cred.user.uid, createdAt: serverTimestamp()
+                });
+
+                showMsg('Account created! Redirecting...', true);
+                setTimeout(() => window.location.href = 'login.html', 1500);
+            } catch (err) {
+                btn.disabled = false;
+                btn.textContent = "Register Account";
+                showMsg(err.message);
+            }
+        });
+    </script>
+</body>
+</html>
