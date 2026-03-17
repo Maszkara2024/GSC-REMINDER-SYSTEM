@@ -38,9 +38,13 @@
         <p class="text-slate-500 text-sm mb-4">Select your teacher and enter your section.</p>
         
         <div class="space-y-3">
-            <input id="studentSectionInput" type="text" placeholder="Enter your Section (e.g. 12-STEM A)" 
-              class="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-bold" />
-            
+            <select id="studentSectionInput" class="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-bold">
+    <option value="General / Unassigned">Select your Section...</option>
+    <option value="8 - Del Pilar">8 - Del Pilar</option>
+    <option value="8 - Jaena">8 - Jaena</option>
+    <option value="8 - Luna">8 - Luna</option>
+    <option value="8 - Silang">8 - Silang</option>
+</select>
             <div class="relative">
               <input id="teacherSearchInput" type="text" placeholder="Search teacher name..." 
                 class="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none" />
@@ -207,16 +211,41 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
   import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, where, updateDoc, doc, arrayUnion, arrayRemove, deleteDoc, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-  window.updateStudentSection = async (studentId, newSection) => {
-    try {
-        const studentRef = doc(db, "users", studentId);
-        await updateDoc(studentRef, { section: newSection });
-    } catch (e) {
-        console.error("Error updating:", e);
-        alert("Failed to update.");
+  // --- EMAIL REMINDER LOGIC ---
+  window.sendEmailReminder = (email, name) => {
+    if (!email || email === 'No email set') {
+      alert("This student doesn't have an email address saved.");
+      return;
     }
-};
 
+    const btn = event.target;
+    const originalText = btn.textContent;
+    
+    btn.textContent = "Sending...";
+    btn.disabled = true;
+
+    const templateParams = {
+      to_email: email,
+      to_name: name,
+      from_name: curUser.name,
+      message: `Hi ${name}, this is a reminder from your teacher to check your pending tasks in the Research Project Dashboard.`
+    };
+
+    emailjs.send('service_z75vrbe', 'template_wlrec7p', templateParams)
+      .then(() => {
+        alert(`Reminder sent to ${name}!`);
+        btn.textContent = "Sent ✓";
+        btn.classList.replace('bg-amber-500', 'bg-green-500');
+      })
+      .catch((err) => {
+        console.error("Email Error:", err);
+        alert("Failed to send email. Check your EmailJS quota.");
+        btn.textContent = originalText;
+        btn.disabled = false;
+      });
+  };
+
+  // --- CONFIG & INIT ---
   const firebaseConfig = {
     apiKey: "AIzaSyBQNGAQGWwKrWHsDfN7mZwb4LA9jP8V8xI",
     authDomain: "gsc-reminder-system.firebaseapp.com",
@@ -228,7 +257,6 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
-
   const curUser = JSON.parse(localStorage.getItem('currentUser::demo'));
   if (!curUser) { window.location.href = 'login.html'; }
 
@@ -236,84 +264,39 @@
   let currentChatRoom = 'global';
   let chatUnsubscribe = null;
 
-  // --- ROOM SELECTION & SEARCH ---
+  // --- SHARED HELPER FUNCTIONS ---
+  window.updateStudentSection = async (studentId, newSection) => {
+    try {
+        await updateDoc(doc(db, "users", studentId), { section: newSection });
+    } catch (e) { alert("Failed to update."); }
+  };
 
   window.assignToTeacher = async (teacherName) => {
-    const section = document.getElementById('studentSectionInput').value.trim();
-    if (!section) {
-        alert("Please enter your Section first!");
-        return;
-    }
-    if (!confirm(`Join ${teacherName}'s room as part of ${section}?`)) return;
-    
+    let section = document.getElementById('studentSectionInput').value.trim() || "General / Unassigned";
+    if (!confirm(`Join ${teacherName}'s room?`)) return;
     const q = query(collection(db, "users"), where("name", "==", curUser.name));
     const snap = await getDocs(q);
     if (!snap.empty) {
-      await updateDoc(doc(db, "users", snap.docs[0].id), { 
-          assignedTeacher: teacherName,
-          section: section 
-      });
-      curUser.assignedTeacher = teacherName;
-      curUser.section = section;
+      await updateDoc(doc(db, "users", snap.docs[0].id), { assignedTeacher: teacherName, section: section });
+      curUser.assignedTeacher = teacherName; curUser.section = section;
       localStorage.setItem('currentUser::demo', JSON.stringify(curUser));
       location.reload(); 
     }
   };
 
-  document.getElementById('leaveRoomBtn').onclick = async () => {
-    if (!confirm("Are you sure you want to leave this class room?")) return;
-    const q = query(collection(db, "users"), where("name", "==", curUser.name));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      await updateDoc(doc(db, "users", snap.docs[0].id), { assignedTeacher: null, section: null });
-      curUser.assignedTeacher = null;
-      curUser.section = null;
-      localStorage.setItem('currentUser::demo', JSON.stringify(curUser));
-      location.reload();
-    }
-  };
-
-  const renderTeacherOverlay = (filter = "") => {
-    const list = document.getElementById('overlayTeacherList');
-    list.innerHTML = "";
-    const filtered = firebaseState.teachers.filter(t => t.name.toLowerCase().includes(filter.toLowerCase()));
-    
-    if (filtered.length === 0) {
-      list.innerHTML = `<p class="text-center text-xs text-slate-400 py-4">No teachers found matching "${filter}"</p>`;
-      return;
-    }
-
-    filtered.forEach(t => {
-      list.innerHTML += `
-        <button onclick="assignToTeacher('${t.name}')" class="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-left hover:border-indigo-500 hover:bg-indigo-50 transition group">
-          <div class="flex justify-between items-center">
-             <span class="font-bold text-slate-700">${t.name}</span>
-             <span class="text-[10px] font-black bg-indigo-600 text-white px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition">JOIN ROOM</span>
-          </div>
-        </button>`;
-    });
-  };
-
-  document.getElementById('teacherSearchInput').oninput = (e) => renderTeacherOverlay(e.target.value);
-
-  // --- GENERAL FUNCTIONS ---
-  
   window.removeItem = async (col, id) => {
-    if(!confirm("Are you sure you want to delete this?")) return;
+    if(!confirm("Are you sure?")) return;
     await deleteDoc(doc(db, col, id));
   };
 
   window.addData = async (col, tId, dId) => {
     const title = document.getElementById(tId).value; 
     const date = document.getElementById(dId).value;
-    if (!title || !date) { alert("Fill in title and date."); return; }
+    if (!title || !date) return alert("Fill in title and date.");
     const entry = { title, date, createdAt: serverTimestamp(), completedBy: [], approvedStudents: [] };
-    if (col !== "events") { entry.teacherName = curUser.name; }
-    try {
-      await addDoc(collection(db, col), entry);
-      document.getElementById(tId).value = ""; 
-      document.getElementById(dId).value = "";
-    } catch (e) { console.error(e); }
+    if (col !== "events") { entry.teacherName = curUser.role === 'teacher' ? curUser.name : document.getElementById('viewTeacherSelect').value; }
+    await addDoc(collection(db, col), entry);
+    document.getElementById(tId).value = ""; document.getElementById(dId).value = "";
   };
 
   window.toggleStudentTask = async (id, col, done) => {
@@ -324,285 +307,156 @@
     await updateDoc(doc(db, col, id), { approvedStudents: arrayUnion(name) });
   };
 
-  window.sendEmailReminder = (email, name) => {
-    if (!email) { alert("This student does not have an email address."); return; }
-    const templateParams = { to_email: email, student_name: name, message: "Reminder: You have pending tasks." };
-    emailjs.send("service_z75vrbe", "template_wlrec7p", templateParams)
-      .then(() => alert("Reminder sent to " + name + "!"), (err) => alert("Failed: " + JSON.stringify(err)));
-  };
+  window.toggleSection = (id) => document.getElementById(id).classList.toggle('collapsed');
 
-  window.toggleSection = (id) => {
-      document.getElementById(id).classList.toggle('collapsed');
-  };
-
-  // --- CHAT ---
-
+  // --- CHAT LOGIC ---
   window.switchRoom = (roomId, roomName) => {
     currentChatRoom = roomId;
     document.getElementById('activeRoomIndicator').textContent = `Room: ${roomName}`;
-    renderRoomsList(); 
     startChatListener(roomId);
   };
 
   const startChatListener = (roomId) => {
-  if (chatUnsubscribe) chatUnsubscribe();
-  
-  // Track messages locally to avoid re-rendering old ones
-  let renderedMessages = new Set(); 
-
-  chatUnsubscribe = onSnapshot(query(collection(db, "chats", roomId, "messages"), orderBy("timestamp", "asc")), (snapshot) => {
-    const box = document.getElementById('chatMessages');
-    
-    snapshot.forEach(doc => {
-      // If we already have this message in the log, skip it
-      if (renderedMessages.has(doc.id)) return;
-      
-      const m = doc.data();
-      const isMe = m.sender === curUser.name;
-      
-      // Append the message instead of clearing the box
-      const msgDiv = document.createElement('div');
-      msgDiv.className = `flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`;
-      msgDiv.innerHTML = `
-        <div class="max-w-[80%]">
-          <div class="flex items-center gap-2 mb-1 ${isMe ? 'flex-row-reverse' : ''}">
-            <span class="text-[9px] font-black text-slate-400 uppercase">${m.sender}</span>
-          </div>
-          <div class="p-3 rounded-2xl text-xs shadow-sm ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-slate-700 border border-slate-200 rounded-tl-none'}">
-            ${m.text}
-          </div>
-        </div>`;
-      
-      box.appendChild(msgDiv);
-      renderedMessages.add(doc.id); // Mark as rendered
+    if (chatUnsubscribe) chatUnsubscribe();
+    let renderedMessages = new Set();
+    chatUnsubscribe = onSnapshot(query(collection(db, "chats", roomId, "messages"), orderBy("timestamp", "asc")), (snapshot) => {
+      const box = document.getElementById('chatMessages');
+      snapshot.forEach(doc => {
+        if (renderedMessages.has(doc.id)) return;
+        const m = doc.data(); const isMe = m.sender === curUser.name;
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`;
+        msgDiv.innerHTML = `<div class="max-w-[80%]"><span class="text-[9px] font-black text-slate-400 uppercase">${m.sender}</span>
+          <div class="p-3 rounded-2xl text-xs shadow-sm ${isMe ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white text-slate-700 border border-slate-200 rounded-tl-none'}">${m.text}</div></div>`;
+        box.appendChild(msgDiv); renderedMessages.add(doc.id);
+      });
+      box.scrollTop = box.scrollHeight;
     });
-
-    // Auto-scroll to bottom only when new content is added
-    box.scrollTop = box.scrollHeight;
-  });
-};
+  };
 
   const sendChatMessage = async () => {
     const input = document.getElementById('chatInput');
-    const text = input.value.trim();
-    if (!text) return;
-    await addDoc(collection(db, "chats", currentChatRoom, "messages"), {
-      text, sender: curUser.name, role: curUser.role, timestamp: serverTimestamp()
-    });
+    if (!input.value.trim()) return;
+    await addDoc(collection(db, "chats", currentChatRoom, "messages"), { text: input.value, sender: curUser.name, timestamp: serverTimestamp() });
     input.value = "";
   };
 
-  window.addEmoji = (emoji) => {
-    const input = document.getElementById('chatInput');
-    input.value += emoji; input.focus();
-    document.getElementById('emojiPicker').classList.add('hidden');
-  };
-
-  const renderRoomsList = () => {
-    const list = document.getElementById('roomList');
-    const isTeacher = curUser.role === 'teacher';
-    list.innerHTML = `<button onclick="switchRoom('global', 'Global Chat')" class="w-full text-left p-2 rounded-lg text-xs font-bold ${currentChatRoom==='global'?'bg-indigo-600 text-white shadow-sm':'text-slate-600 hover:bg-slate-100'}"># global-chat</button>`;
-    firebaseState.currentRooms.forEach(r => {
-      const isActive = currentChatRoom === r.id;
-      list.innerHTML += `
-        <div class="group flex items-center justify-between w-full rounded-lg ${isActive?'bg-indigo-600 text-white shadow-sm':'hover:bg-slate-100 text-slate-600'}">
-          <button onclick="switchRoom('${r.id}', '${r.name}')" class="flex-1 text-left p-2 text-xs font-bold truncate"># ${r.name.toLowerCase().replace(/\s+/g, '-')}</button>
-          ${isTeacher ? `<button onclick="deleteRoom('${r.id}', event)" class="opacity-0 group-hover:opacity-100 px-2 text-rose-400 hover:text-rose-600 font-bold transition">×</button>` : ''}
-        </div>`;
-    });
-  };
-
-  const listenToRooms = () => {
-    onSnapshot(query(collection(db, "chatRooms"), orderBy("createdAt", "desc")), (snap) => {
-      firebaseState.currentRooms = [];
-      snap.forEach(d => firebaseState.currentRooms.push({ id: d.id, ...d.data() }));
-      renderRoomsList();
-    });
-  };
-
-  // --- DATA FILTERS ---
-
+  // --- DATA FILTERING ---
   const setupFilteredListener = (colName, listId) => {
     const selector = document.getElementById('viewTeacherSelect');
     let unsub;
     const runQuery = () => {
       if (unsub) unsub();
       const selT = selector.value;
-      let q = (colName === "events") ? query(collection(db, colName), orderBy("date", "asc")) : (selT ? query(collection(db, colName), where("teacherName", "==", selT), orderBy("date", "asc")) : null);
-      if (!q) return;
+      if (!selT && colName !== "events") return;
+      let q = (colName === "events") ? query(collection(db, colName), orderBy("date", "asc")) : query(collection(db, colName), where("teacherName", "==", selT), orderBy("date", "asc"));
       unsub = onSnapshot(q, (snap) => {
-        const list = document.getElementById(listId);
-        list.innerHTML = ""; const items = [];
+        const list = document.getElementById(listId); list.innerHTML = "";
         snap.forEach(fbDoc => {
-          const item = fbDoc.data(); const id = fbDoc.id; items.push({id, ...item});
+          const item = fbDoc.data(); const id = fbDoc.id;
           const iDone = item.completedBy?.includes(curUser.name);
           const iApproved = item.approvedStudents?.includes(curUser.name);
           const isTeacher = curUser.role === 'teacher';
-          let html = `
-          <div class="relative p-3 bg-white rounded-lg border border-slate-200 shadow-sm mb-2 group">
-            ${isTeacher ? `<button onclick="removeItem('${colName}', '${id}')" class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-700 font-bold transition">×</button>` : ''}
-            <div class="text-xs font-bold">${item.title}</div>
-            <div class="text-[10px] text-indigo-600">${item.date}</div>`;
+          let html = `<div class="relative p-3 bg-white rounded-lg border border-slate-200 shadow-sm mb-2 group">
+            ${isTeacher ? `<button onclick="removeItem('${colName}','${id}')" class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-rose-500">×</button>` : ''}
+            <div class="text-xs font-bold">${item.title}</div><div class="text-[10px] text-indigo-600">${item.date}</div>`;
           if (!isTeacher) {
-            html += `<div class="mt-2">${iApproved ? '<div class="text-center text-[10px] text-green-600 font-bold">✓ APPROVED</div>' : `<button onclick="toggleStudentTask('${id}','${colName}',${iDone})" class="w-full py-1 rounded text-[10px] font-bold ${iDone?'bg-amber-100':'bg-indigo-600 text-white'}">${iDone?'Undo':'Mark Done'}</button>`}</div>`;
+            html += `<div class="mt-2">${iApproved ? '<div class="text-[10px] text-green-600 font-bold">✓ APPROVED</div>' : `<button onclick="toggleStudentTask('${id}','${colName}',${iDone})" class="w-full py-1 rounded text-[10px] font-bold ${iDone?'bg-amber-100':'bg-indigo-600 text-white'}">${iDone?'Undo':'Mark Done'}</button>`}</div>`;
           } else {
-            html += `<div class="mt-2 border-t pt-2 space-y-1">`;
-            (item.completedBy || []).forEach(s => {
-              const isApp = item.approvedStudents?.includes(s);
-              html += `<div class="flex justify-between items-center bg-slate-50 p-1 rounded text-[10px]">
-                        <span>${s}</span>
-                        <div class="flex gap-1">${isApp ? '<span class="text-green-600 font-bold px-1">✓ OK</span>' : `<button onclick="approveIndividualStudent('${id}','${colName}','${s}')" class="bg-indigo-500 text-white px-2 py-0.5 rounded hover:bg-indigo-600 transition">Approve</button>`}</div>
-                      </div>`;
-            });
-            html += `</div>`;
+            html += `<div class="mt-2 border-t pt-2">` + (item.completedBy || []).map(s => `<div class="flex justify-between items-center text-[10px]"><span>${s}</span>${item.approvedStudents?.includes(s) ? '✓' : `<button onclick="approveIndividualStudent('${id}','${colName}','${s}')" class="text-indigo-600">Approve</button>`}</div>`).join('') + `</div>`;
           }
           list.innerHTML += html + `</div>`;
         });
-        firebaseState[colName] = items;
       });
     };
-    selector.addEventListener('change', runQuery); runQuery();
+    selector.addEventListener('change', runQuery);
   };
-
-let lastDirectoryHash = ""; 
-
-
-
-
 
   // --- INITIALIZE ---
   document.addEventListener('DOMContentLoaded', () => {
     onSnapshot(collection(db, "users"), (snap) => {
       const users = []; 
       snap.forEach(d => {
-    // Add the ID so we can find them later to update
-    users.push({ id: d.id, ...d.data() }); 
-    if(d.data().name === curUser.name) { // Use d.data() here
-        curUser.assignedTeacher = d.data().assignedTeacher;
-        curUser.section = d.data().section;
-    }
-});
+        const data = d.data(); users.push({ id: d.id, ...data }); 
+        if(data.name === curUser.name) { curUser.assignedTeacher = data.assignedTeacher; curUser.section = data.section; }
+      });
 
-
-
-      // Filter students who have joined THIS specific teacher's room
-      const myStudents = users.filter(u => u.role === 'student' && (u.assignedTeacher === curUser.name || !u.assignedTeacher));
-      firebaseState.students = users.filter(u => u.role === 'student');
+      const allStudents = users.filter(u => u.role === 'student');
       firebaseState.teachers = users.filter(u => u.role === 'teacher');
       
-      const studentListDiv = document.getElementById('studentDirectoryList');
-      const countSpan = document.getElementById('studentCount');
       const sel = document.getElementById('viewTeacherSelect');
+      const studentListDiv = document.getElementById('studentDirectoryList');
 
-      if (curUser.role === 'teacher') {
-        document.getElementById('studentDirectorySection')?.classList.remove('hidden');
-        countSpan.textContent = myStudents.length;
-        studentListDiv.innerHTML = "";
-
-        // Group students by Section
-        const sections = {};
-        const noSection = [];
-
-        myStudents.forEach(s => {
-            if (s.section && s.section.trim() !== "") {
-                const sec = s.section;
-                if (!sections[sec]) sections[sec] = [];
-                sections[sec].push(s);
-            } else {
-                noSection.push(s);
-            }
-        });
-        
-        // 1. RENDER "NO SECTION" GROUP FIRST
-        if (noSection.length > 0) {
-            let noSecHtml = `
-            <div id="sec-none" class="section-group bg-white border-2 border-dashed border-amber-200 rounded-xl overflow-hidden mb-6">
-                <button onclick="toggleSection('sec-none')" class="w-full flex items-center justify-between p-4 bg-amber-50 hover:bg-amber-100 transition">
-                    <div class="flex items-center gap-3">
-                        <span class="text-xl">⚠️</span>
-                        <span class="font-bold text-amber-700 text-sm uppercase tracking-tight">ALL STUDENTS</span>
-                        <span class="text-[10px] bg-amber-200 text-amber-800 px-2 py-0.5 rounded-full">${noSection.length}</span>
-                    </div>
-                    <span class="chevron transition-transform text-amber-400">▼</span>
-                </button>
-                <div class="student-grid p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">`;
-            
-            noSection.forEach(s => {
-                noSecHtml += `
-                <div class="flex items-center justify-between p-3 bg-white border border-amber-100 rounded-lg shadow-sm">
-                  <div class="truncate mr-2">
-                    <div class="text-xs font-bold text-slate-800">${s.name}</div>
-                    <div class="text-[9px] text-slate-500 truncate">${s.email || 'No email set'}</div>
-                  </div>
-                  <button onclick="sendEmailReminder('${s.email}', '${s.name}')" class="shrink-0 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold rounded transition">Remind</button>
-                </div>`;
-            });
-
-            noSecHtml += `</div></div> <hr class="border-slate-100 my-4" />`;
-            studentListDiv.innerHTML += noSecHtml;
-        }
-
-        // 2. RENDER ORGANIZED SECTIONS
-        Object.keys(sections).sort().forEach(secName => {
-            const secId = `sec-${secName.replace(/\s+/g, '-')}`;
-            const studentsInSec = sections[secName];
-
-            let sectionHtml = `
-            <div id="${secId}" class="section-group bg-white border border-slate-200 rounded-xl overflow-hidden mb-2">
-                <button onclick="toggleSection('${secId}')" class="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition">
-                    <div class="flex items-center gap-3">
-                        <span class="text-xl">📁</span>
-                        <span class="font-bold text-slate-700 text-sm">${secName}</span>
-                        <span class="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">${studentsInSec.length}</span>
-                    </div>
-                    <span class="chevron transition-transform text-slate-400">▼</span>
-                </button>
-                <div class="student-grid p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">`;
-            
-            studentsInSec.forEach(s => {
-                sectionHtml += `
-                <div class="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-lg shadow-sm">
-                  <div class="truncate mr-2">
-                    <div class="text-xs font-bold text-slate-800">${s.name}</div>
-                    <div class="text-[9px] text-slate-500 truncate">${s.email || 'No email set'}</div>
-                  </div>
-                  <button onclick="sendEmailReminder('${s.email}', '${s.name}')" class="shrink-0 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold rounded transition">Remind</button>
-                </div>`;
-            });
-
-            sectionHtml += `</div></div>`;
-            studentListDiv.innerHTML += sectionHtml;
-        });
-      }
-
-      // Sync Teacher Dropdown
+      // 1. Sync Teacher Dropdown FIRST
       sel.innerHTML = '<option value="">Select Teacher...</option>';
       firebaseState.teachers.forEach(u => sel.innerHTML += `<option value="${u.name}">${u.name}</option>`);
 
+      // 2. Render Directory (REPLACED VERSION)
+      if (curUser.role === 'teacher' && studentListDiv) {
+        document.getElementById('studentDirectorySection').classList.remove('hidden');
+        document.getElementById('studentCount').textContent = allStudents.length;
+        studentListDiv.innerHTML = "";
+
+        const masterSections = ["8 - Del Pilar", "8 - Jaena", "8 - Luna", "8 - Silang"];
+        const groups = { "8 - Del Pilar": [], "8 - Jaena": [], "8 - Luna": [], "8 - Silang": [], "Unassigned": [] };
+
+        allStudents.forEach(s => {
+          if (masterSections.includes(s.section)) {
+            groups[s.section].push(s);
+          } else {
+            groups["Unassigned"].push(s);
+          }
+        });
+
+        const renderGroup = (title, list, id, isSpecial) => {
+          let html = `
+          <div id="${id}" class="section-group bg-white ${isSpecial ? 'border-2 border-dashed border-slate-200' : 'border border-slate-200'} rounded-xl overflow-hidden mb-4 shadow-sm">
+            <button onclick="toggleSection('${id}')" class="w-full flex items-center justify-between p-4 ${isSpecial ? 'bg-slate-50' : 'bg-white'} hover:bg-slate-100 transition">
+              <div class="flex items-center gap-3">
+                <span class="text-xl">${isSpecial ? '👥' : '📁'}</span>
+                <span class="font-bold text-slate-700 text-sm">${title}</span>
+                <span class="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">${list.length}</span>
+              </div>
+              <span class="chevron transition-transform text-slate-400">▼</span>
+            </button>
+            <div class="student-grid p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">`;
+
+          list.forEach(s => {
+            html += `
+            <div class="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-lg shadow-sm hover:border-indigo-200 transition">
+              <div class="truncate mr-2">
+                <div class="text-xs font-bold text-slate-800">${s.name}</div>
+                <div class="text-[9px] text-indigo-500 font-bold italic">${s.assignedTeacher || 'Unassigned'}</div>
+              </div>
+              <button onclick="sendEmailReminder('${s.email}', '${s.name}')" 
+                      class="shrink-0 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold rounded transition shadow-sm">
+                Remind
+              </button>
+            </div>`;
+          });
+          studentListDiv.innerHTML += html + `</div></div>`;
+        };
+
+        // Render "New" students first, then the 4 fixed sections
+        if (groups["Unassigned"].length > 0) renderGroup("All Students (New/Unassigned)", groups["Unassigned"], "sec-none", true);
+        masterSections.forEach(name => renderGroup(name, groups[name], `sec-${name.replace(/\s+/g,'-')}`, false));
+      }
+
+      // 3. Auto-Select Teacher
       if (curUser.role === 'student') {
-        const overlay = document.getElementById('roomSelectionOverlay');
-        const leaveBtn = document.getElementById('leaveRoomBtn');
         if (!curUser.assignedTeacher) {
-          overlay.classList.remove('hidden');
-          document.body.classList.add('modal-open');
-          renderTeacherOverlay();
-          leaveBtn.classList.add('hidden');
+          document.getElementById('roomSelectionOverlay').classList.remove('hidden');
         } else {
-          overlay.classList.add('hidden');
-          document.body.classList.remove('modal-open');
-          leaveBtn.classList.remove('hidden');
-          sel.value = curUser.assignedTeacher;
-          sel.disabled = true;
-          sel.dispatchEvent(new Event('change'));
+          document.getElementById('roomSelectionOverlay').classList.add('hidden');
+          sel.value = curUser.assignedTeacher; sel.disabled = true; sel.dispatchEvent(new Event('change'));
         }
       } else {
-        sel.value = curUser.name;
-        sel.dispatchEvent(new Event('change'));
+        sel.value = curUser.name; sel.dispatchEvent(new Event('change'));
       }
     });
 
     if (curUser.role === 'teacher') {
-        document.querySelectorAll('#teacherEventPanel, #activityTeacherPanel, #performanceTeacherPanel, [id$="TeacherOnly"], #studentsLink, #clearChatBtn').forEach(el => el?.classList.remove('hidden'));
+      document.querySelectorAll('#teacherEventPanel, #activityTeacherPanel, #performanceTeacherPanel, [id$="TeacherOnly"], #studentsLink, #clearChatBtn').forEach(el => el?.classList.remove('hidden'));
     }
     document.getElementById('currentUserDisplay').textContent = `${curUser.name} (${curUser.role})`;
 
@@ -617,7 +471,14 @@ let lastDirectoryHash = "";
     document.getElementById('logoutBtn').onclick = () => { localStorage.removeItem('currentUser::demo'); window.location.href = 'login.html'; };
     document.getElementById('emojiBtn').onclick = (e) => { e.stopPropagation(); document.getElementById('emojiPicker').classList.toggle('hidden'); };
 
-    listenToRooms();
+    onSnapshot(query(collection(db, "chatRooms"), orderBy("createdAt", "desc")), (snap) => {
+      const list = document.getElementById('roomList');
+      list.innerHTML = `<button onclick="switchRoom('global', 'Global Chat')" class="w-full text-left p-2 rounded-lg text-xs font-bold ${currentChatRoom==='global'?'bg-indigo-600 text-white':'text-slate-600'}"># global-chat</button>`;
+      snap.forEach(d => {
+        const r = d.data(); const id = d.id;
+        list.innerHTML += `<button onclick="switchRoom('${id}', '${r.name}')" class="w-full text-left p-2 text-xs font-bold ${currentChatRoom===id?'bg-indigo-600 text-white':'text-slate-600'}"># ${r.name}</button>`;
+      });
+    });
     startChatListener('global');
   });
 </script>
